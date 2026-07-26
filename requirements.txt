@@ -1,0 +1,10 @@
+requests
+feedparser
+beautifulsoup4
+yfinance
+googlenewsdecoder
+PyYAML
+python-dotenv
+curl_cffi
+trafilatura
+crawl4ai

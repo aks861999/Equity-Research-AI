@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+data/*
+!data/.gitkeep
+.venv/
+*.egg-info/
+only.txt
+
+archieve/
+alli/

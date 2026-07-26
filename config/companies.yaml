@@ -1,0 +1,28 @@
+# One entry per company you're tracking.
+#
+# ticker              - used as the CouchDB partition key (ticker field on every doc),
+#                        and passed to yfinance / google_news / SEC EDGAR.
+# sec_form_type       - '8-K' for US domestic issuers, '6-K' for foreign private issuers.
+#                        OMIT this key entirely for any ticker that shouldn't go through
+#                        sec_edgar.py at all (e.g. non-US-listed names EDGAR has no filings
+#                        for). main.py skips the SEC step whenever this key is absent —
+#                        do not set it to null/None, just leave the key out.
+# primary_search_name - the exact string substituted into every metrics.yaml
+#                        {COMPANY} template for Google News queries. Use the name
+#                        that reads naturally in a headline search, not the legal name.
+companies:
+  - ticker: MELI
+    sec_form_type: "8-K"
+    primary_search_name: "MercadoLibre"
+
+  - ticker: GLBE
+    sec_form_type: "6-K"
+    primary_search_name: "Global-E Online"
+
+  # No sec_form_type -> sec_edgar.py is skipped for this ticker (not a US EDGAR filer).
+  - ticker: ADS.DE
+    primary_search_name: "Adidas"
+
+  # No sec_form_type -> sec_edgar.py is skipped for this ticker (not a US EDGAR filer).
+  - ticker: 5108.T
+    primary_search_name: "Bridgestone"

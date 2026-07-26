@@ -1,0 +1,159 @@
+# 25 per-metric Google News search string templates, from the design doc.
+# {COMPANY} is substituted with each company's primary_search_name at query time.
+# `when:1m` / `when:3m` / `when:1y` is appended by the fetcher, not baked in here,
+# so the automatic widen-if-too-few-results logic can swap it per metric per run.
+metrics:
+  # --- Growth ---
+  - metric_id: m01_revenue_growth
+    metric_number: 1
+    theme: growth
+    name: "Revenue Growth (YoY) / CAGR"
+    search_template: '{COMPANY} ("revenue growth" OR "sales growth" OR "quarterly revenue" OR "revenue guidance")'
+
+  - metric_id: m02_operating_profit_growth
+    metric_number: 2
+    theme: growth
+    name: "Operating Profit Growth (OpInc/EBIT)"
+    search_template: '{COMPANY} ("operating profit" OR "operating income growth" OR "operating leverage")'
+
+  - metric_id: m03_net_income_growth
+    metric_number: 3
+    theme: growth
+    name: "Net Income Growth"
+    search_template: '{COMPANY} ("net income" OR "net profit growth" OR "earnings growth" OR "profit beat" OR "profit miss")'
+
+  - metric_id: m04_asset_equity_inventory_growth
+    metric_number: 4
+    theme: growth
+    name: "Asset / Equity / Inventory Growth"
+    search_template: '{COMPANY} ("inventory levels" OR "balance sheet growth" OR "inventory buildup" OR "total assets")'
+
+  # --- Profitability & Margin ---
+  - metric_id: m05_gross_margin
+    metric_number: 5
+    theme: profitability_margin
+    name: "Gross Margin (+ trend)"
+    search_template: '{COMPANY} ("gross margin" OR "gross profit" OR "pricing power" OR "cost of goods")'
+
+  - metric_id: m06_operating_margin
+    metric_number: 6
+    theme: profitability_margin
+    name: "Operating Margin"
+    search_template: '{COMPANY} ("operating margin" OR "margin expansion" OR "margin pressure")'
+
+  - metric_id: m07_ebit_margin
+    metric_number: 7
+    theme: profitability_margin
+    name: "EBIT Margin"
+    search_template: '{COMPANY} ("EBIT margin" OR "operating margin" OR "operating profit margin")'
+
+  - metric_id: m08_ebitda_margin
+    metric_number: 8
+    theme: profitability_margin
+    name: "EBITDA Margin"
+    search_template: '{COMPANY} ("EBITDA margin" OR "EBITDA growth" OR "adjusted EBITDA")'
+
+  - metric_id: m09_net_profit_margin
+    metric_number: 9
+    theme: profitability_margin
+    name: "Net Profit Margin"
+    search_template: '{COMPANY} ("profit margin" OR "net margin" OR "bottom line")'
+
+  - metric_id: m10_sga_to_revenue
+    metric_number: 10
+    theme: profitability_margin
+    name: "SG&A-to-Revenue"
+    search_template: '{COMPANY} ("SG&A" OR "operating expenses" OR "cost-cutting" OR "cost discipline" OR "restructuring costs")'
+
+  # --- Capital Efficiency & Returns ---
+  - metric_id: m11_roe
+    metric_number: 11
+    theme: returns_capital_efficiency
+    name: "ROE"
+    search_template: '{COMPANY} ("return on equity" OR "ROE" OR "shareholder returns" OR "capital efficiency")'
+
+  - metric_id: m12_roa
+    metric_number: 12
+    theme: returns_capital_efficiency
+    name: "ROA"
+    search_template: '{COMPANY} ("return on assets" OR "asset efficiency" OR "asset utilization")'
+
+  - metric_id: m13_roic
+    metric_number: 13
+    theme: returns_capital_efficiency
+    name: "ROIC"
+    search_template: '{COMPANY} ("return on invested capital" OR "ROIC" OR "capital allocation" OR "cost of capital")'
+
+  - metric_id: m14_asset_turnover
+    metric_number: 14
+    theme: returns_capital_efficiency
+    name: "Asset Turnover"
+    search_template: '{COMPANY} ("asset turnover" OR "operational efficiency" OR "productivity gains")'
+
+  # --- Growth Funding & Reinvestment ---
+  - metric_id: m15_sustainable_growth_rate
+    metric_number: 15
+    theme: funding_reinvestment
+    name: "Sustainable Growth Rate"
+    search_template: '{COMPANY} ("retained earnings" OR "dividend policy" OR "self-funded growth" OR "organic growth funding")'
+
+  - metric_id: m16_reinvestment_rate
+    metric_number: 16
+    theme: funding_reinvestment
+    name: "Reinvestment Rate"
+    search_template: '{COMPANY} ("capital expenditure plans" OR "reinvestment" OR "expansion plans" OR "investment plans")'
+
+  - metric_id: m17_free_cash_flow
+    metric_number: 17
+    theme: funding_reinvestment
+    name: "Free Cash Flow (approx.)"
+    search_template: '{COMPANY} ("free cash flow" OR "cash generation" OR "cash flow guidance")'
+
+  - metric_id: m18_capex_to_sales
+    metric_number: 18
+    theme: funding_reinvestment
+    name: "Capex-to-Sales"
+    search_template: '{COMPANY} ("capital expenditure" OR "capex" OR "capex guidance" OR "capital spending")'
+
+  # --- Leverage, Liquidity & Coverage ---
+  - metric_id: m19_debt_to_equity
+    metric_number: 19
+    theme: leverage_liquidity
+    name: "Debt-to-Equity"
+    search_template: '{COMPANY} ("debt levels" OR "leverage" OR "debt-to-equity" OR "balance sheet strength")'
+
+  - metric_id: m20_debt_to_assets
+    metric_number: 20
+    theme: leverage_liquidity
+    name: "Debt-to-Assets"
+    search_template: '{COMPANY} ("total debt" OR "debt financing" OR "debt load")'
+
+  - metric_id: m21_net_debt_to_ebitda
+    metric_number: 21
+    theme: leverage_liquidity
+    name: "Net Debt-to-EBITDA"
+    search_template: '{COMPANY} ("credit rating" OR "net debt" OR "leverage ratio" OR "Moody''s" OR "S&P" OR "Fitch")'
+
+  - metric_id: m22_current_ratio
+    metric_number: 22
+    theme: leverage_liquidity
+    name: "Current Ratio"
+    search_template: '{COMPANY} ("liquidity" OR "working capital" OR "short-term liquidity")'
+
+  - metric_id: m23_quick_ratio
+    metric_number: 23
+    theme: leverage_liquidity
+    name: "Quick Ratio"
+    search_template: '{COMPANY} ("liquidity position" OR "working capital" OR "inventory risk")'
+
+  - metric_id: m24_cash_ratio
+    metric_number: 24
+    theme: leverage_liquidity
+    name: "Cash Ratio"
+    search_template: '{COMPANY} ("cash reserves" OR "cash position" OR "cash balance" OR "cash pile")'
+
+  - metric_id: m25_interest_coverage
+    metric_number: 25
+    theme: leverage_liquidity
+    name: "Interest Coverage"
+    search_template: '{COMPANY} ("interest expense" OR "debt servicing" OR "refinancing" OR "credit rating")'
