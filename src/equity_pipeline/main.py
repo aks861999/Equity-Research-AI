@@ -84,31 +84,34 @@ def ingest_company(db, ticker: str, metrics: list[dict]):
     ingest_yahoo_news(db, company)
     ingest_google_news(db, company, metrics)
 
-
 def main():
     parser = argparse.ArgumentParser(description="Ingest news/filings for one or all companies")
     parser.add_argument("--ticker", help="Single ticker to ingest (must exist in companies.yaml). Omit to run all.")
     parser.add_argument("--run-extraction", action="store_true",
-                         help="Also run the pending-article body-text extraction pass after ingesting.")
+                         help="Run ONLY the pending-article body-text extraction pass (skips ingestion).")
     parser.add_argument("--run-sentiment", action="store_true",
-                         help="Run FinBERT sentiment analysis on extracted articles.")
+                         help="Run ONLY FinBERT sentiment analysis on extracted articles (skips ingestion).")
     args = parser.parse_args()
 
     db = get_db()
     metrics = load_metrics()
 
-    if args.ticker:
-        ingest_company(db, args.ticker, metrics)
-    else:
-        from .config import load_companies
-        for company in load_companies():
-            ingest_company(db, company["ticker"], metrics)
+    # STEP 1: Ingestion (Only runs if you DO NOT pass --run-extraction or --run-sentiment)
+    if not args.run_extraction and not args.run_sentiment:
+        if args.ticker:
+            ingest_company(db, args.ticker, metrics)
+        else:
+            from .config import load_companies
+            for company in load_companies():
+                ingest_company(db, company["ticker"], metrics)
 
+    # STEP 2: Extraction (Runs only if you pass --run-extraction)
     if args.run_extraction:
         from .extraction.run_extraction import run_pending_extractions
         result = asyncio.run(run_pending_extractions(db, batch_limit=100000))
         logger.info("[extraction] %s", result)
 
+    # STEP 3: Sentiment (Runs only if you pass --run-sentiment)
     if args.run_sentiment:
         from .extraction.run_sentiment import run_pending_sentiments
         result = run_pending_sentiments(db, batch_limit=100000)
