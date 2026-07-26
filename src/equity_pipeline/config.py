@@ -53,3 +53,9 @@ def llm_settings() -> dict:
         "api_key": os.getenv("MANAGED_LLM_API_KEY", ""),
         "model": os.getenv("LLM_MODEL", "MiniMaxAI/MiniMax-M2.5"),
     }
+
+
+def gnews_settings() -> dict:
+    return {
+        "api_key": os.getenv("GNEWS_API_KEY", "")
+    }

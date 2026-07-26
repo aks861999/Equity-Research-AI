@@ -1,150 +1,81 @@
-"""
-Google News fetcher — per-metric, per-company.
-
-Change from your original 1_google_news_fetcher.py: that script called
-gnewsdecoder() once per article per query, with a 10-15s sleep between calls
-to stay polite. Run straight, across 25 metrics x 5 articles x 4 companies,
-that's ~2000 decode calls -> 2000 x ~12s ~= 6-7 hours, most of it spent
-re-decoding the *same* handful of articles over and over (your own design doc
-points out one earnings article typically satisfies 8-10 metric queries).
-
-Fix: collect raw (undecoded) RSS entries for all 25 metrics first, dedup on
-the raw Google redirect link, and only decode each unique link once. This
-typically cuts decode calls by 5-10x for very little added complexity.
-"""
 import time
-import random
-import calendar
-import urllib.parse
-from datetime import datetime, timezone
-
-import feedparser
-from googlenewsdecoder import gnewsdecoder
+import requests
 
 from ..ingestion.time_utils import to_iso
 
-GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
-WIDEN_WINDOWS = ["when:1m", "when:3m", "when:1y"]
-MIN_RESULTS_BEFORE_WIDENING = 2
+GNEWS_API_URL = "https://gnews.io/api/v4/search"
 
+def fetch_metric_gnews(company_search_name: str, search_template: str, max_results: int, api_key: str):
+    """Fetch articles for a single metric using the gnews.io API."""
+    query = search_template.format(COMPANY=company_search_name)
+    params = {
+        "q": query,
+        "lang": "en",
+        "country": "us",
+        "max": max_results,
+        "apikey": api_key
+    }
+    
+    try:
+        resp = requests.get(GNEWS_API_URL, params=params, timeout=10)
+        if resp.status_code == 200:
+            return resp.json().get("articles", [])
+        elif resp.status_code == 429:
+            print("  [GNews] Rate limit exceeded (429). Sleeping for 60 seconds...")
+            time.sleep(60)
+            return fetch_metric_gnews(company_search_name, search_template, max_results, api_key)
+        else:
+            print(f"  [GNews] API Error: {resp.status_code} - {resp.text}")
+            return []
+    except Exception as e:
+        print(f"  [GNews] Request failed: {e}")
+        return []
 
-def _parse_pubdate(entry):
-    """feedparser's published_parsed is a UTC struct_time; convert with
-    calendar.timegm (not time.mktime, which assumes local time)."""
-    if getattr(entry, "published_parsed", None):
-        ts = calendar.timegm(entry.published_parsed)
-        return datetime.fromtimestamp(ts, tz=timezone.utc)
-    return None
-
-
-def fetch_metric_rss(company_search_name: str, search_template: str, window: str):
-    query = f"{search_template.format(COMPANY=company_search_name)} {window}"
-    safe_query = urllib.parse.quote(query)
-    url = GOOGLE_NEWS_RSS.format(query=safe_query)
-    feed = feedparser.parse(url)
-    return [
-        {
-            "title": e.title,
-            "google_link": e.link,
-            "published_at": _parse_pubdate(e),
-        }
-        for e in feed.entries
-    ]
-
-
-def fetch_metric_with_widening(company_search_name: str, search_template: str,
-                                max_results: int = 5):
-
-    """Per your design doc's guidance: widen when:1m -> when:3m -> when:1y if
-    the trailing window returns too few results."""
-    entries, window_used = [], WIDEN_WINDOWS[0]
-    for window in WIDEN_WINDOWS:
-        entries = fetch_metric_rss(company_search_name, search_template, window)
-        window_used = window
-        if len(entries) >= MIN_RESULTS_BEFORE_WIDENING or window == WIDEN_WINDOWS[-1]:
-            break
-        time.sleep(0.3)
-    return entries[:max_results], window_used
-
-
-def collect_all_metric_articles(company_search_name: str, metrics: list, max_per_metric: int = 5):
-    """
-    Runs every metric's search string for one company. Returns a dict keyed by
-    the raw Google redirect link (pre-decode), so the same story hit by
-    multiple metric queries is collapsed to one entry with multiple
-    matched_metrics before any decoding happens.
-    """
+def collect_all_metric_articles(company_search_name: str, metrics: list, max_per_metric: int = 1, api_key: str = None):
+    """Runs every metric's search string for one company via gnews.io."""
     collected = {}
+    print("\n--- GNews API Fetching ---")
     for metric in metrics:
-        entries, window_used = fetch_metric_with_widening(
-            company_search_name, metric["search_template"], max_per_metric
-        )
-
-        print(f"[{metric['metric_id']}] Fetched: {len(entries)} articles (Window used: {window_used})")
-
-        for e in entries:
-            key = e["google_link"]
-            if key not in collected:
-                collected[key] = {
-                    "title": e["title"],
-                    "published_at": e["published_at"],
+        articles = fetch_metric_gnews(company_search_name, metric["search_template"], max_per_metric, api_key)
+        print(f"[{metric['metric_id']}] Fetched: {len(articles)} articles")
+        
+        for a in articles:
+            url = a.get("url")
+            if not url:
+                continue
+                
+            # Dedup by the real URL immediately
+            if url not in collected:
+                collected[url] = {
+                    "title": a.get("title"),
+                    "url": url,
+                    "published_at": a.get("publishedAt"),
                     "matched_metrics": [],
                 }
-            existing_ids = {m["metric_id"] for m in collected[key]["matched_metrics"]}
+            existing_ids = {m["metric_id"] for m in collected[url]["matched_metrics"]}
             if metric["metric_id"] not in existing_ids:
-                collected[key]["matched_metrics"].append({
+                collected[url]["matched_metrics"].append({
                     "metric_id": metric["metric_id"],
-                    "query_window": window_used,
+                    "query_window": "gnews_api"
                 })
-        time.sleep(0.4)  # polite pause between RSS queries (cheap, no decode yet)
+        
+        # GNews free tier allows 10 requests per minute. Wait 6 seconds between metrics.
+        time.sleep(6) 
+        
+    print("--------------------------\n")
     return collected
 
-
-def decode_unique_links(collected: dict, db=None, ticker=None, decode_delay_range=(2, 4)):
-    """Decode each unique link exactly once. If db is provided, checks the 
-    database first to skip decoding for already-ingested articles."""
+# We keep this function name so main.py doesn't break, but it just passes data through now.
+def decode_unique_links(collected: dict, db=None, ticker=None, decode_delay_range=(0, 0)):
+    """GNews returns real URLs directly, so no decoding is needed! 
+    We just format the data to match what main.py expects."""
     decoded = []
-    items = list(collected.items())
-    print(f"\nDecoding {len(items)} unique articles. This may take a minute...")
-    
-    for i, (google_link, meta) in enumerate(items):
-        real_url = google_link  # Default to raw link if decoding is skipped/failed
-
-        # ---> DB CHECK <---
-        if db and ticker:
-            existing_docs = db.find(
-                {"type": "raw_article", "google_link": google_link}, 
-                limit=1, 
-                fields=["url"] # Only fetch the URL field to save memory/time
-            )
-            if existing_docs:
-                real_url = existing_docs[0].get("url", google_link)
-                print(f"  [{i+1}/{len(items)}] Skipped decode (found in DB): {real_url}")
-                decoded.append({
-                    "title": meta["title"],
-                    "url": real_url,
-                    "google_link": google_link,
-                    "published_at": to_iso(meta["published_at"]),
-                    "matched_metrics": meta["matched_metrics"],
-                })
-                continue  # Skip the slow gnewsdecoder call entirely!
-
-        # Only run gnewsdecoder if it wasn't in the DB
-        try:
-            result = gnewsdecoder(google_link)
-            real_url = result["decoded_url"] if result.get("status") else google_link
-        except Exception:
-            real_url = google_link
-
-        print(f"  [{i+1}/{len(items)}] Decoded: {real_url}")
+    for url, meta in collected.items():
         decoded.append({
             "title": meta["title"],
-            "url": real_url,
-            "google_link": google_link,  # Save this so upsert_article can store it
+            "url": meta["url"],
+            "google_link": url, # Store the real URL here for DB consistency
             "published_at": to_iso(meta["published_at"]),
             "matched_metrics": meta["matched_metrics"],
         })
-
-        if i < len(items) - 1:
-            time.sleep(random.uniform(*decode_delay_range))
     return decoded
