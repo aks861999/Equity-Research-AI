@@ -10,7 +10,7 @@ from .dedup import article_doc_id, filing_doc_id
 from .time_utils import now_iso, to_iso
 
 
-def upsert_article(db, ticker, source, metric_scope, title, url, published_at, matched_metrics):
+def upsert_article(db, ticker, source, metric_scope, title, url, published_at, matched_metrics, google_link=None):
     """
     matched_metrics: list of {"metric_id": ..., "query_window": ...} — empty list
     for general-scope sources (yahoo_finance). For google_news hits, if the
@@ -30,6 +30,7 @@ def upsert_article(db, ticker, source, metric_scope, title, url, published_at, m
                 "metric_scope": metric_scope,
                 "title": title,
                 "url": url,
+                "google_link": google_link,
                 "published_at": to_iso(published_at),
                 "first_fetched_at": now,
                 "last_seen_at": now,

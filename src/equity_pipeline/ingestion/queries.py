@@ -12,6 +12,7 @@ def create_indexes(db):
     db.create_index(["type", "ticker"], name="type_ticker_idx")
     db.create_index(["type", "extraction", "status"], name="extraction_status_idx")
     db.create_index(["type", "ticker", "matched_metrics"], name="metric_match_idx")
+    db.create_index(["type", "google_link"], name="google_link_idx")  # <-- ADD THIS LINE
 
 
 def get_articles_for_ticker(db, ticker: str, limit: int = 200):

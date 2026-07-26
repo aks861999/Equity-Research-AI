@@ -56,12 +56,16 @@ def ingest_yahoo_news(db, company: dict):
 
 
 def ingest_google_news(db, company: dict, metrics: list[dict]):
-    collected = collect_all_metric_articles(company["primary_search_name"], metrics)
-    decoded = decode_unique_links(collected)
+    collected = collect_all_metric_articles(company["primary_search_name"], metrics, max_per_metric=10)
+    
+    # Pass db and ticker here!
+    decoded = decode_unique_links(collected, db=db, ticker=company["ticker"])
+    
     for article in decoded:
         upsert_article(
             db, company["ticker"], source="google_news", metric_scope="metric",
-            title=article["title"], url=article["url"],
+            title=article["title"], url=article["url"], 
+            google_link=article.get("google_link"),  # Pass the raw google_link here!
             published_at=article["published_at"], matched_metrics=article["matched_metrics"],
         )
     logger.info("[google_news] %s: upserted %d unique articles across %d metrics",
@@ -94,9 +98,11 @@ def main():
         for company in load_companies():
             ingest_company(db, company["ticker"], metrics)
 
+
     if args.run_extraction:
         from .extraction.run_extraction import run_pending_extractions
-        result = asyncio.run(run_pending_extractions(db))
+        # Set batch_limit to a very high number to process everything at once
+        result = asyncio.run(run_pending_extractions(db, batch_limit=100000))
         logger.info("[extraction] %s", result)
 
 
