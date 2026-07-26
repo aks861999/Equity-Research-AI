@@ -75,7 +75,7 @@ class FinBERTAnalyzer:
             return 0.2 # Passively mentioned further down, down-weight heavily
 
     def score_article(self, title, body_text, company_name):
-        chunks = self._chunk_text_to_ids(body_text, self.tokenizer)
+        chunks = self._chunk_text_to_ids(body_text)
         if not chunks:
             return {
                 "label": "neutral",

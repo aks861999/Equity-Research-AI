@@ -82,7 +82,7 @@ def ingest_company(db, ticker: str, metrics: list[dict]):
     logger.info("=== Ingesting %s (%s) ===", company["ticker"], company["primary_search_name"])
     ingest_sec_filings(db, company)
     ingest_yahoo_news(db, company)
-    ingest_google_news(db, company, metrics)
+   # ingest_google_news(db, company, metrics)
 
 def main():
     parser = argparse.ArgumentParser(description="Ingest news/filings for one or all companies")
@@ -91,13 +91,20 @@ def main():
                          help="Run ONLY the pending-article body-text extraction pass (skips ingestion).")
     parser.add_argument("--run-sentiment", action="store_true",
                          help="Run ONLY FinBERT sentiment analysis on extracted articles (skips ingestion).")
+    parser.add_argument("--run-aggregation", action="store_true",
+                        help="Aggregate article sentiments into final PM metric scores.")
+    parser.add_argument("--run-fundamentals", action="store_true",
+                        help="Calculate fundamental metrics from CSV files and store in DB.")
+
+
     args = parser.parse_args()
 
     db = get_db()
     metrics = load_metrics()
 
     # STEP 1: Ingestion (Only runs if you DO NOT pass --run-extraction or --run-sentiment)
-    if not args.run_extraction and not args.run_sentiment:
+
+    if not args.run_extraction and not args.run_sentiment and not args.run_aggregation and not args.run_fundamentals:
         if args.ticker:
             ingest_company(db, args.ticker, metrics)
         else:
@@ -116,6 +123,18 @@ def main():
         from .extraction.run_sentiment import run_pending_sentiments
         result = run_pending_sentiments(db, batch_limit=100000)
         logger.info("[sentiment] %s", result)
+
+    # STEP 4: Aggregation (Runs only if you pass --run-aggregation)
+    if args.run_aggregation:
+        from .extraction.run_growth_aggregation import run_metric_aggregation
+        result = run_metric_aggregation(db)
+        logger.info("[aggregation] %s", result)
+
+    # STEP 5: Fundamentals (Runs only if you pass --run-fundamentals)
+    if args.run_fundamentals:
+        from .extraction.run_growth_fundamentals import run_fundamental_extraction
+        result = run_fundamental_extraction(db)
+        logger.info("[fundamentals] %s", result)
 
 if __name__ == "__main__":
     main()
