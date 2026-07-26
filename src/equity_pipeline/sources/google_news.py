@@ -25,7 +25,7 @@ from ..ingestion.time_utils import to_iso
 
 GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 WIDEN_WINDOWS = ["when:1m", "when:3m", "when:1y"]
-MIN_RESULTS_BEFORE_WIDENING = 5
+MIN_RESULTS_BEFORE_WIDENING = 2
 
 
 def _parse_pubdate(entry):

@@ -7,8 +7,8 @@ read structured data back out of CouchDB by ticker/metric/status.
 """
 import argparse
 
-from .config import couchdb_settings
-from .db.couchdb_client import CouchDBClient
+from .config import db_settings
+from .db.postgres_client import PostgresClient
 from .ingestion.queries import (
     get_articles_for_ticker,
     get_filings_for_ticker,
@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--ticker", required=True)
     args = parser.parse_args()
 
-    db = CouchDBClient(**couchdb_settings())
+    db = PostgresClient(**db_settings())
 
     articles = get_articles_for_ticker(db, args.ticker)
     filings = get_filings_for_ticker(db, args.ticker)

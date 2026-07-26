@@ -11,8 +11,8 @@ import argparse
 import asyncio
 import logging
 
-from .config import couchdb_settings, get_company, load_metrics
-from .db.couchdb_client import CouchDBClient
+from .config import db_settings, get_company, load_metrics
+from .db.postgres_client import PostgresClient
 from .ingestion import queries
 from .ingestion.upsert import upsert_article, upsert_filing
 from .sources.google_news import collect_all_metric_articles, decode_unique_links
@@ -22,11 +22,10 @@ from .sources.yahoo_finance import fetch_yahoo_news
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(message)s")
 logger = logging.getLogger("main")
 
-
-def get_db() -> CouchDBClient:
-    db = CouchDBClient(**couchdb_settings())
+def get_db() -> PostgresClient:
+    db = PostgresClient(**db_settings())
     db.ensure_db()
-    queries.create_indexes(db)
+    queries.create_indexes(db) # You can leave this, it won't hurt, or remove it
     return db
 
 
@@ -56,7 +55,7 @@ def ingest_yahoo_news(db, company: dict):
 
 
 def ingest_google_news(db, company: dict, metrics: list[dict]):
-    collected = collect_all_metric_articles(company["primary_search_name"], metrics, max_per_metric=10)
+    collected = collect_all_metric_articles(company["primary_search_name"], metrics, max_per_metric=2)
     
     # Pass db and ticker here!
     decoded = decode_unique_links(collected, db=db, ticker=company["ticker"])
@@ -86,6 +85,8 @@ def main():
     parser.add_argument("--ticker", help="Single ticker to ingest (must exist in companies.yaml). Omit to run all.")
     parser.add_argument("--run-extraction", action="store_true",
                          help="Also run the pending-article body-text extraction pass after ingesting.")
+    parser.add_argument("--run-sentiment", action="store_true",
+                         help="Run FinBERT sentiment analysis on extracted articles.")
     args = parser.parse_args()
 
     db = get_db()
@@ -98,13 +99,15 @@ def main():
         for company in load_companies():
             ingest_company(db, company["ticker"], metrics)
 
-
     if args.run_extraction:
         from .extraction.run_extraction import run_pending_extractions
-        # Set batch_limit to a very high number to process everything at once
         result = asyncio.run(run_pending_extractions(db, batch_limit=100000))
         logger.info("[extraction] %s", result)
 
+    if args.run_sentiment:
+        from .extraction.run_sentiment import run_pending_sentiments
+        result = run_pending_sentiments(db, batch_limit=100000)
+        logger.info("[sentiment] %s", result)
 
 if __name__ == "__main__":
     main()

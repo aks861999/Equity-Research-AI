@@ -36,12 +36,13 @@ def load_metrics() -> list[dict]:
     return data["metrics"]
 
 
-def couchdb_settings() -> dict:
+def db_settings() -> dict:
     return {
-        "base_url": os.getenv("COUCHDB_URL", "http://localhost:5984"),
-        "db_name": os.getenv("COUCHDB_DBNAME", "equity_research"),
-        "user": os.getenv("COUCHDB_USER"),
-        "password": os.getenv("COUCHDB_PASSWORD"),
+        "host": os.getenv("POSTGRES_HOST", "localhost"),
+        "port": os.getenv("POSTGRES_PORT", "5432"),
+        "db_name": os.getenv("POSTGRES_DB", "equity_research"),
+        "user": os.getenv("POSTGRES_USER"),
+        "password": os.getenv("POSTGRES_PASSWORD"),
     }
 
 

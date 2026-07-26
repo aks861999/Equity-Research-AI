@@ -116,3 +116,16 @@ def apply_extraction_result(db, doc_id: str, status: str, fetch_method: str, bod
         return existing
 
     db.upsert(doc_id, update_fn)
+
+
+
+def apply_sentiment_result(db, doc_id: str, sentiment_payload: dict):
+    """Called by the sentiment runner to safely update only the sentiment field."""
+    
+    def update_fn(existing):
+        if existing is None:
+            raise RuntimeError(f"{doc_id} was deleted before its sentiment could be applied")
+        existing["sentiment"] = sentiment_payload
+        return existing
+
+    db.upsert(doc_id, update_fn)

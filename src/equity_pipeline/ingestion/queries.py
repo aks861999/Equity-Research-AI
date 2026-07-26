@@ -48,3 +48,6 @@ def get_unscored_articles(db, ticker: str = None, limit: int = 200):
     if ticker:
         selector["ticker"] = ticker
     return db.find(selector, limit=limit)
+
+
+
