@@ -157,3 +157,77 @@ metrics:
     theme: leverage_liquidity
     name: "Interest Coverage"
     search_template: '{COMPANY} ("interest expense" OR "debt servicing" OR "refinancing" OR "credit rating")'
+
+
+  # --- Risk & Concerns ---
+  - metric_id: r01_altman_z_score
+    metric_number: 26
+    theme: risk
+    name: "Altman Z-Score (distress/bankruptcy risk)"
+    search_template: '{COMPANY} ("bankruptcy risk" OR "financial distress" OR "going concern" OR "solvency concerns" OR "credit rating downgrade" OR "Altman Z-Score")'
+
+  - metric_id: r02_debt_to_equity
+    metric_number: 27
+    theme: risk
+    name: "Debt-to-Equity Ratio"
+    search_template: '{COMPANY} ("debt levels" OR "leverage" OR "debt-to-equity" OR "balance sheet leverage")'
+
+  - metric_id: r03_debt_ratio
+    metric_number: 28
+    theme: risk
+    name: "Debt Ratio (Total Liabilities/Total Assets)"
+    search_template: '{COMPANY} ("debt burden" OR "balance sheet strength" OR "solvency" OR "total liabilities")'
+
+  - metric_id: r04_net_debt_to_ebitda
+    metric_number: 29
+    theme: risk
+    name: "Net Debt-to-EBITDA"
+    search_template: '{COMPANY} ("net debt" OR "leverage ratio" OR "credit rating" OR "Moody''s" OR "S&P" OR "Fitch")'
+
+  - metric_id: r05_short_term_debt_ratio
+    metric_number: 30
+    theme: risk
+    name: "Short-Term Debt / Total Debt (refinancing risk)"
+    search_template: '{COMPANY} ("debt maturity" OR "refinancing" OR "bond maturity" OR "loan maturity" OR "debt rollover")'
+
+  - metric_id: r06_current_ratio
+    metric_number: 31
+    theme: risk
+    name: "Current Ratio (+ working capital)"
+    search_template: '{COMPANY} ("liquidity" OR "working capital" OR "cash crunch" OR "short-term liquidity")'
+
+  - metric_id: r07_quick_ratio
+    metric_number: 32
+    theme: risk
+    name: "Quick Ratio"
+    search_template: '{COMPANY} ("liquidity position" OR "inventory risk" OR "working capital" OR "cash position")'
+
+  - metric_id: r08_interest_coverage
+    metric_number: 33
+    theme: risk
+    name: "Interest Coverage Ratio"
+    search_template: '{COMPANY} ("interest expense" OR "debt servicing" OR "interest payments" OR "credit rating")'
+
+  - metric_id: r09_retained_earnings_deficit
+    metric_number: 34
+    theme: risk
+    name: "Retained Earnings / Accumulated Deficit"
+    search_template: '{COMPANY} ("accumulated deficit" OR "accumulated losses" OR "going concern" OR "shareholders equity" OR "equity erosion")'
+
+  - metric_id: r10_non_recurring_items
+    metric_number: 35
+    theme: risk
+    name: "Non-Recurring / Extraordinary Items (earnings quality)"
+    search_template: '{COMPANY} ("one-time charge" OR "restructuring charge" OR "non-recurring" OR "extraordinary item" OR "write-down")'
+
+  - metric_id: r11_goodwill_intangibles
+    metric_number: 36
+    theme: risk
+    name: "Goodwill & Intangibles / Total Assets"
+    search_template: '{COMPANY} ("goodwill impairment" OR "impairment charge" OR "asset write-down" OR "intangible impairment")'
+
+  - metric_id: r12_risk_provision_trend
+    metric_number: 37
+    theme: risk
+    name: "Risk-Provision Trend (Prov For Risk Charges)"
+    search_template: '{COMPANY} ("legal provision" OR "litigation reserve" OR "warranty provision" OR "contingent liability" OR "lawsuit settlement" OR "restructuring provision")'

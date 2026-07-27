@@ -37,11 +37,27 @@ def _parse_pubdate(entry):
     return None
 
 
+import requests
+
+# Add your headers at the top of the file or inside the function
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
 def fetch_metric_rss(company_search_name: str, search_template: str, window: str):
     query = f"{search_template.format(COMPANY=company_search_name)} {window}"
     safe_query = urllib.parse.quote(query)
     url = GOOGLE_NEWS_RSS.format(query=safe_query)
-    feed = feedparser.parse(url)
+    
+    try:
+        # Use requests with headers to avoid Google blocking the default feedparser User-Agent
+        response = requests.get(url, headers=HEADERS, timeout=15)
+        # Pass the text content to feedparser
+        feed = feedparser.parse(response.text)
+    except Exception as e:
+        print(f"  [Google News] Failed to fetch RSS: {e}")
+        return []
+        
     return [
         {
             "title": e.title,
@@ -96,11 +112,11 @@ def collect_all_metric_articles(company_search_name: str, metrics: list, max_per
                     "metric_id": metric["metric_id"],
                     "query_window": window_used,
                 })
-        time.sleep(0.4)  # polite pause between RSS queries (cheap, no decode yet)
+        time.sleep(4)  # polite pause between RSS queries (cheap, no decode yet)
     return collected
 
 
-def decode_unique_links(collected: dict, db=None, ticker=None, decode_delay_range=(2, 4)):
+def decode_unique_links(collected: dict, db=None, ticker=None, decode_delay_range=(3, 6)):
     """Decode each unique link exactly once. If db is provided, checks the 
     database first to skip decoding for already-ingested articles."""
     decoded = []

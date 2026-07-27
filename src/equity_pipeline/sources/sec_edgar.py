@@ -155,7 +155,8 @@ def _extract_ex99_text(document_url: str, index_url: str = None, filename: str =
 # --------------------------------------------------------------------------
 # Orchestration — returns structured dicts instead of writing to disk
 # --------------------------------------------------------------------------
-def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: str) -> list:
+# Update the function signature to accept db
+def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: str, db=None) -> list:
     index_url = entry.link
     filing_date_str = getattr(entry, "updated", "")
     filing_date = _parse_rss_date(filing_date_str)
@@ -179,6 +180,16 @@ def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: st
 
     results = []
     for section, doc_info in targets:
+        # ---> ADD THIS DB CHECK <---
+        safe_section = section.replace(".", "_").replace(" ", "_")
+        doc_id = f"filing:{ticker}:{accession}:{safe_section}"
+        
+        if db:
+            existing_doc = db.get(doc_id)
+            if existing_doc and existing_doc.get("body_text"):
+                # Filing is already in the DB, skip downloading and parsing!
+                continue
+                
         time.sleep(REQUEST_DELAY)
         text = _extract_ex99_text(doc_info["url"], index_url, doc_info.get("filename"))
         if not text:
@@ -193,13 +204,9 @@ def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: st
             "body_text": text,
         })
     return results
-
-
-def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookback_days: int = 365):
-    """Returns a list of filing dicts (one per extracted exhibit/section) ready
-    for ingestion.upsert.upsert_filing(). Only fetches `form_type` (pass '8-K'
-    for US domestic issuers, '6-K' for foreign private issuers — see
-    company['sec_form_type'] in companies.yaml)."""
+# Update the function signature to accept db
+def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookback_days: int = 365, db=None):
+    """Returns a list of filing dicts..."""
     cutoff = datetime.now() - timedelta(days=lookback_days)
     rss_url = (
         f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}"
@@ -221,7 +228,8 @@ def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookb
         if filing_date and filing_date < cutoff:
             continue
 
-        all_results.extend(_process_one_filing(ticker, entry, cutoff, form_type))
+        # Pass db to the inner function
+        all_results.extend(_process_one_filing(ticker, entry, cutoff, form_type, db=db))
         processed += 1
 
     time.sleep(REQUEST_DELAY)
