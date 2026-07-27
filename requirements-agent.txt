@@ -1,0 +1,3 @@
+pydantic-ai
+streamlit
+psycopg2-binary
