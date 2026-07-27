@@ -96,7 +96,9 @@ def main():
     parser.add_argument("--run-fundamentals", action="store_true",
                         help="Calculate fundamental metrics from CSV files and store in DB.")
 
-
+    parser.add_argument("--run-summary", action="store_true",
+                         help="Use LLM to extract key positives/negatives from recent news.")
+    
     args = parser.parse_args()
 
     db = get_db()
@@ -104,7 +106,7 @@ def main():
 
     # STEP 1: Ingestion (Only runs if you DO NOT pass --run-extraction or --run-sentiment)
 
-    if not args.run_extraction and not args.run_sentiment and not args.run_aggregation and not args.run_fundamentals:
+    if not args.run_extraction and not args.run_sentiment and not args.run_aggregation and not args.run_fundamentals and not args.run_summary:
         if args.ticker:
             ingest_company(db, args.ticker, metrics)
         else:
@@ -135,6 +137,12 @@ def main():
         from .extraction.run_growth_fundamentals import run_fundamental_extraction
         result = run_fundamental_extraction(db)
         logger.info("[fundamentals] %s", result)
+
+    # STEP 6: LLM Summary (Runs only if you pass --run-summary)
+    if args.run_summary:
+        from .extraction.dashboard_run_news_summarization import run_all_summaries
+        run_all_summaries(db)
+        logger.info("[summary] LLM summarization complete.")
 
 if __name__ == "__main__":
     main()
