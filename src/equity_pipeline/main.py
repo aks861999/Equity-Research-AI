@@ -100,7 +100,7 @@ def ingest_company(db, ticker: str, metrics: list[dict]):
     logger.info("=== Ingesting %s (%s) ===", company["ticker"], company["primary_search_name"])
     ingest_sec_filings(db, company)
     ingest_yahoo_news(db, company)
-    ingest_google_news(db, company, metrics)
+    #ingest_google_news(db, company, metrics)
 
 def main():
     parser = argparse.ArgumentParser(description="Ingest news/filings for one or all companies")
