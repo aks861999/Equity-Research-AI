@@ -47,11 +47,11 @@ def new_run_id(ticker: str) -> str:
     return f"{ticker}_{ts}_{uuid.uuid4().hex[:8]}"
 
 
+# after
 def deterministic_model_settings(seed: int = DEFAULT_SEED) -> dict:
-    """Passed as `model_settings=` to the pydantic_ai Agent / agent.run()."""
     return {
         "temperature": 0.0,
-        "top_p": 0.0,
+        "top_p": 1e-5,
         "seed": seed,
     }
 

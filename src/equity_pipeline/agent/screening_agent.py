@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from ..config import get_company, llm_settings
@@ -49,7 +49,7 @@ def _build_model(settings: dict):
     fhgenie/OpenAI-compatible endpoint the rest of the codebase already uses
     (see config.llm_settings / dashboard_run_news_summarization.py)."""
     provider = OpenAIProvider(base_url=settings["base_url"], api_key=settings["api_key"])
-    return OpenAIModel(settings["model"], provider=provider)
+    return OpenAIChatModel(settings["model"], provider=provider)
 
 
 SYSTEM_PROMPT = """\
@@ -170,7 +170,7 @@ def run_screening(
     )
 
     output: ScreeningSummary = run_result.output
-    usage = run_result.usage()
+    usage = run_result.usage
     monitoring_summary = monitor.summary(usage)
 
     manifest = build_run_manifest(

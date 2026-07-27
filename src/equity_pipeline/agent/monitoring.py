@@ -58,8 +58,8 @@ class RunMonitor:
             "tool_calls_by_name": self.tool_call_count_by_name(),
             "tool_call_log": self.tool_call_log,
             "llm_calls_total": getattr(llm_usage, "requests", None),
-            "llm_request_tokens": getattr(llm_usage, "request_tokens", None),
-            "llm_response_tokens": getattr(llm_usage, "response_tokens", None),
+            "llm_request_tokens": getattr(llm_usage, "input_tokens", None),
+            "llm_response_tokens": getattr(llm_usage, "output_tokens", None),
             "llm_total_tokens": getattr(llm_usage, "total_tokens", None),
             "wall_clock_seconds": round(time.monotonic() - self._start_time, 3),
         }
