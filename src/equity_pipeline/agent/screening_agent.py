@@ -154,7 +154,14 @@ def run_screening(
 
     agent = build_agent()
     deps = AgentDeps(ticker=ticker, db=db, monitor=monitor)
-    run_result = agent.run_sync(..., deps=deps, model_settings=deterministic_model_settings(seed))
+
+    run_result = agent.run_sync(
+        f"Produce an initial growth-strategy screening summary for {ticker} "
+        f"({company['primary_search_name']}).",
+        deps=deps,
+        model_settings=deterministic_model_settings(seed),
+    )
+
 
     if progress_callback:
         progress_callback("📝 Finalizing screening summary...")
