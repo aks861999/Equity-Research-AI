@@ -83,49 +83,42 @@ def _ingest_google_news(db, company: dict, metrics: list[dict]) -> int:
         )
     return len(decoded)
 
+def run_live_pipeline(db, ticker: str, include_google_news: bool = True, progress_callback=None) -> dict:
+    def _p(msg: str) -> None:
+        logger.info(msg)
+        if progress_callback:
+            progress_callback(msg)
 
-def run_live_pipeline(db, ticker: str, include_google_news: bool = True) -> dict:
-    """Runs, in order, for a single ticker: SEC EDGAR ingest -> Yahoo Finance
-    ingest -> (optionally) Google News per-metric ingest -> pending body-text
-    extraction -> pending FinBERT sentiment scoring -> metric-score
-    aggregation -> growth fundamentals (CSV) -> risk fundamentals (CSV).
-
-    Note: run_pending_extractions / run_pending_sentiments / run_metric_
-    aggregation operate on whatever is globally pending/scored across ALL
-    tickers (that's how the underlying functions in extraction/ are
-    written), not just this one -- harmless, but means a refresh can also
-    pick up backlog from other tickers.
-    """
-    company = get_company(ticker)  # raises if out of scope, before anything runs
+    company = get_company(ticker)
     metrics = load_metrics()
     counts: dict = {"ticker": ticker}
 
-    logger.info("[live_pipeline] %s: SEC EDGAR ingest...", ticker)
+    _p(f"[live_pipeline] {ticker}: SEC EDGAR ingest...")
     counts["sec_filings_ingested"] = _ingest_sec(db, company)
 
-    logger.info("[live_pipeline] %s: Yahoo Finance ingest...", ticker)
+    _p(f"[live_pipeline] {ticker}: Yahoo Finance ingest...")
     counts["yahoo_articles_ingested"] = _ingest_yahoo(db, company)
 
     if include_google_news:
-        logger.info("[live_pipeline] %s: Google News per-metric ingest...", ticker)
+        _p(f"[live_pipeline] {ticker}: Google News per-metric ingest...")
         counts["google_news_articles_ingested"] = _ingest_google_news(db, company, metrics)
     else:
         counts["google_news_articles_ingested"] = "skipped"
 
-    logger.info("[live_pipeline] %s: body-text extraction...", ticker)
+    _p(f"[live_pipeline] {ticker}: body-text extraction...")
     counts["extraction"] = asyncio.run(run_pending_extractions(db, batch_limit=200))
 
-    logger.info("[live_pipeline] %s: FinBERT sentiment scoring...", ticker)
+    _p(f"[live_pipeline] {ticker}: FinBERT sentiment scoring...")
     counts["sentiment"] = run_pending_sentiments(db, batch_limit=2000)
 
-    logger.info("[live_pipeline] %s: metric-score aggregation...", ticker)
+    _p(f"[live_pipeline] {ticker}: metric-score aggregation...")
     counts["aggregation"] = run_metric_aggregation(db)
 
-    logger.info("[live_pipeline] %s: growth fundamentals (CSV)...", ticker)
+    _p(f"[live_pipeline] {ticker}: growth fundamentals (CSV)...")
     counts["growth_fundamentals"] = run_fundamental_extraction(db)
 
-    logger.info("[live_pipeline] %s: risk fundamentals (CSV)...", ticker)
+    _p(f"[live_pipeline] {ticker}: risk fundamentals (CSV)...")
     counts["risk_fundamentals"] = run_risk_fundamental_extraction(db)
 
-    logger.info("[live_pipeline] %s complete: %s", ticker, counts)
+    _p(f"[live_pipeline] {ticker} complete.")
     return counts

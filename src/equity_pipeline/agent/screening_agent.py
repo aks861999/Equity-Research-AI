@@ -133,41 +133,32 @@ def run_screening(
     seed: int = DEFAULT_SEED,
     refresh_data: bool = True,
     include_google_news: bool = False,
+    progress_callback=None,
 ) -> dict:
-    """Synchronous entry point used by run_screening.py and the Streamlit app.
-
-    If `refresh_data` is True (default), runs the full live pipeline first --
-    SEC EDGAR + Yahoo Finance + Google News ingestion, body-text extraction,
-    FinBERT sentiment, metric-score aggregation, and growth/risk fundamentals
-    recomputation from the CSVs -- so a PM typing a brand-new ticker gets a
-    fully up-to-date screening rather than whatever was last batch-processed.
-    Set it to False for fast, cached-data runs (e.g. repeated demo clicks).
-
-    Returns a dict with keys: `result` (ScreeningSummary), `monitoring`
-    (dict), `manifest` (dict), `manifest_path` (str), `pipeline_counts`
-    (dict or None).
-    """
     ticker = ticker.strip().upper()
-    company = get_company(ticker)  # raises ValueError if out of scope - fails fast, before any tool/LLM/network call
+    company = get_company(ticker)
     logger.info("Starting screening run for %s (%s)", ticker, company["primary_search_name"])
 
     run_id = new_run_id(ticker)
-    monitor = RunMonitor(run_id=run_id, ticker=ticker)
+    monitor = RunMonitor(run_id=run_id, ticker=ticker, progress_callback=progress_callback)
     db = get_db()
 
     pipeline_counts = None
     if refresh_data:
-        pipeline_counts = run_live_pipeline(db, ticker, include_google_news=include_google_news)
+        pipeline_counts = run_live_pipeline(
+            db, ticker, include_google_news=include_google_news, progress_callback=progress_callback,
+        )
+
+    if progress_callback:
+        progress_callback("🤖 Calling screening agent (fundamentals_tool + news_tool + LLM)...")
 
     agent = build_agent()
     deps = AgentDeps(ticker=ticker, db=db, monitor=monitor)
+    run_result = agent.run_sync(..., deps=deps, model_settings=deterministic_model_settings(seed))
 
-    run_result = agent.run_sync(
-        f"Produce an initial growth-strategy screening summary for {ticker} "
-        f"({company['primary_search_name']}).",
-        deps=deps,
-        model_settings=deterministic_model_settings(seed),
-    )
+    if progress_callback:
+        progress_callback("📝 Finalizing screening summary...")
+
 
     output: ScreeningSummary = run_result.output
     usage = run_result.usage

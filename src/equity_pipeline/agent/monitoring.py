@@ -27,6 +27,8 @@ class RunMonitor:
     ticker: str
     tool_call_log: list[dict] = field(default_factory=list)
     _start_time: float = field(default_factory=time.monotonic)
+    progress_callback: object = None   # Callable[[str], None] | None
+
 
     def record_tool_call(self, tool_name: str, **extra) -> None:
         self.tool_call_log.append(
@@ -36,6 +38,8 @@ class RunMonitor:
                 **extra,
             }
         )
+        if self.progress_callback:
+            self.progress_callback(f"🔧 Tool called: {tool_name}")
 
     @property
     def tool_call_count(self) -> int:

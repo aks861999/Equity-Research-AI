@@ -19,7 +19,7 @@ two tools from doing more than one query internally. So:
     already sitting in Postgres from a previous ingestion run.
 """
 from __future__ import annotations
-
+import pandas as pd
 import logging
 from datetime import datetime, timezone
 
@@ -45,6 +45,25 @@ def get_db() -> PostgresClient:
     db = PostgresClient(**db_settings())
     db.ensure_db()
     return db
+
+
+
+def fetch_fundamental_metrics_df(db, ticker: str) -> pd.DataFrame:
+    """Raw fundamental_metrics rows for a ticker, for UI/debug display."""
+    query = (
+        "SELECT metric_id, fundamental_value, fundamental_grade, calculated_at "
+        "FROM fundamental_metrics WHERE ticker = %s ORDER BY metric_id"
+    )
+    return pd.read_sql_query(query, db.conn, params=(ticker,))
+
+
+def fetch_metric_scores_df(db, ticker: str) -> pd.DataFrame:
+    """Raw metric_scores rows for a ticker, for UI/debug display."""
+    query = (
+        "SELECT metric_id, weighted_sentiment, dispersion, volume "
+        "FROM metric_scores WHERE ticker = %s ORDER BY metric_id"
+    )
+    return pd.read_sql_query(query, db.conn, params=(ticker,))
 
 
 # ---------------------------------------------------------------------------

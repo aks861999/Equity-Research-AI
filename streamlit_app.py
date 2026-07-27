@@ -14,7 +14,12 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-from equity_pipeline.agent.data_access import get_db, load_fundamentals_bundle  # noqa: E402
+from equity_pipeline.agent.data_access import (  # noqa: E402
+    fetch_fundamental_metrics_df,
+    fetch_metric_scores_df,
+    get_db,
+    load_fundamentals_bundle,
+)
 from equity_pipeline.agent.evaluation import evaluate_screening  # noqa: E402
 from equity_pipeline.agent.reproducibility import DEFAULT_SEED  # noqa: E402
 from equity_pipeline.agent.screening_agent import run_screening  # noqa: E402
@@ -33,6 +38,8 @@ with col1:
 with col2:
     seed = st.number_input("Seed", value=DEFAULT_SEED, step=1)
 
+
+
 refresh_data = st.checkbox(
     "Run full live pipeline first (SEC EDGAR + Yahoo Finance + Google News ingest, FinBERT sentiment, "
     "aggregation, growth + risk fundamentals)",
@@ -46,18 +53,29 @@ if refresh_data:
         "Include Google News per-metric ingest (needed for growth-metric sentiment; slowest step)",
         value=False,
     )
+with st.expander(f"🗄️ Raw DB tables for {ticker}", expanded=False):
+    _preview_db = get_db()
+    st.markdown("**fundamental_metrics**")
+    st.dataframe(fetch_fundamental_metrics_df(_preview_db, ticker), use_container_width=True)
+    st.markdown("**metric_scores**")
+    st.dataframe(fetch_metric_scores_df(_preview_db, ticker), use_container_width=True)
+
 
 if st.button("Run screening", type="primary"):
-    with st.spinner(f"Running screening agent for {ticker}..."):
+    with st.status(f"Running screening agent for {ticker}...", expanded=True) as status:
+        def _update(msg: str) -> None:
+            status.write(msg)
+
         run = run_screening(
-            ticker, seed=int(seed), refresh_data=refresh_data, include_google_news=include_google_news,
+            ticker, seed=int(seed), refresh_data=refresh_data,
+            include_google_news=include_google_news, progress_callback=_update,
         )
         summary = run["result"]
         db = get_db()
         fundamentals = load_fundamentals_bundle(db, ticker)
         quality = evaluate_screening(summary, fundamentals)
+        status.update(label=f"Screening complete for {ticker}", state="complete")
 
-    st.success(f"Screening complete for {summary.ticker}")
 
     st.subheader("1. Growth-strategy relevance")
     verdict_color = {
