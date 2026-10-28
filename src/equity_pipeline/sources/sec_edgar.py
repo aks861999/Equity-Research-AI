@@ -7,6 +7,7 @@ instead of process_filing() calling _save_extraction() to write content.md +
 metadata.json to disk, fetch_sec_filings() now returns a list of dicts that
 ingestion/upsert.upsert_filing() writes straight into CouchDB.
 """
+import logging
 import re
 import time
 import urllib.parse
@@ -16,7 +17,11 @@ import requests
 import feedparser
 from bs4 import BeautifulSoup, NavigableString
 
-HEADERS = {"User-Agent": "SEC_USER_AGENT_FROM_ENV"}  # SEC strictly requires a real UA
+from ..config import sec_user_agent
+
+logger = logging.getLogger("sec_edgar")
+
+HEADERS = {"User-Agent": sec_user_agent()}  # SEC strictly requires a real UA, set SEC_USER_AGENT in .env
 REQUEST_DELAY = 0.5
 
 
@@ -207,6 +212,8 @@ def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: st
 # Update the function signature to accept db
 def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookback_days: int = 365, db=None):
     """Returns a list of filing dicts..."""
+    if not HEADERS["User-Agent"]:
+        logger.warning("SEC_USER_AGENT is not set in .env; sec.gov will likely reject these requests.")
     cutoff = datetime.now() - timedelta(days=lookback_days)
     rss_url = (
         f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}"

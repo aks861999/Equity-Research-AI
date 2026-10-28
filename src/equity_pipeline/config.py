@@ -55,6 +55,11 @@ def llm_settings() -> dict:
     }
 
 
+def sec_user_agent() -> str:
+    """SEC EDGAR rejects requests without a real contact: '<name> <email>'."""
+    return os.getenv("SEC_USER_AGENT", "")
+
+
 def gnews_settings() -> dict:
     return {
         "api_key": os.getenv("GNEWS_API_KEY", "")

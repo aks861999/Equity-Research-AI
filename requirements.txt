@@ -8,3 +8,10 @@ python-dotenv
 curl_cffi
 trafilatura
 crawl4ai
+psycopg2-binary
+pandas
+numpy
+torch
+transformers
+openai
+instructor
