@@ -36,50 +36,9 @@ A Portfolio Manager picks a ticker. A few minutes later they get a structured br
 
 ## 🏗 Architecture
 
-```mermaid
-flowchart LR
-    subgraph SRC["🌐 Sources"]
-        SEC["SEC EDGAR<br/>8-K / 6-K Atom feed"]
-        YF["Yahoo Finance<br/>news API"]
-        GN["Google News RSS<br/>37 metric queries"]
-        CSV["Financial statements<br/>IncomeStatements.csv<br/>BalanceSheets.csv"]
-    end
-
-    subgraph ING["📥 Ingestion"]
-        DEDUP["URL canonicalisation<br/>+ SHA-256 doc IDs"]
-        UPSERT["Idempotent upsert<br/>merge metric matches"]
-    end
-
-    subgraph DB["🗄 PostgreSQL"]
-        ART[("articles<br/>JSONB documents")]
-        MS[("metric_scores")]
-        FM[("fundamental_metrics")]
-    end
-
-    subgraph PROC["⚙️ Processing"]
-        EXT["Body-text extraction<br/>curl_cffi → crawl4ai"]
-        FIN["FinBERT sentiment<br/>chunked, relevance-weighted"]
-        AGG["Time-decayed aggregation<br/>per ticker × metric"]
-        FUND["36 ratio calculations<br/>+ Red/Yellow/Green grades"]
-    end
-
-    subgraph AGENT["🤖 Screening agent (PydanticAI)"]
-        T1["fundamentals_tool"]
-        T2["news_tool"]
-        LLM["LLM → ScreeningSummary"]
-    end
-
-    SEC & YF & GN --> DEDUP --> UPSERT --> ART
-    ART --> EXT --> ART
-    ART --> FIN --> ART
-    ART --> AGG --> MS
-    CSV --> FUND --> FM
-    MS & FM & ART --> T1
-    SEC & YF -. live .-> T2
-    T1 & T2 --> LLM
-    LLM --> UI["Streamlit dashboard / CLI"]
-    LLM --> MAN["run_manifests/*.json"]
-```
+<p align="center">
+  <img src="docs/diagrams/architecture.png" width="800" alt="System architecture. SEC EDGAR, Yahoo Finance and Google News feed ingestion, which writes to the articles table. Articles are enriched with text extraction and FinBERT scoring, then aggregated into metric_scores. Financial statement CSVs become 36 graded ratios in fundamental_metrics. Agent tool 1 reads those tables, agent tool 2 fetches live Yahoo and SEC data, and the PydanticAI agent produces a ScreeningSummary for the Streamlit dashboard, the CLI and the run manifests.">
+</p>
 
 The system runs as two layers:
 
@@ -229,16 +188,9 @@ lower-case scheme + host  →  strip utm_*, fbclid, gclid, ocid, …  →  sort 
 
 [`article_extractor.py`](src/equity_pipeline/extraction/article_extractor.py) uses a two-tier fetch strategy:
 
-```mermaid
-flowchart LR
-    A[pending article] --> B["Tier 1: curl_cffi<br/>Chrome TLS fingerprint<br/>2 retries, linear backoff"]
-    B -->|"ok"| C["trafilatura<br/>main-content extraction"]
-    B -->|"403/429/503, CAPTCHA,<br/>'just a moment', under 500 chars"| D["Tier 2: crawl4ai<br/>stealth headless browser"]
-    C -->|"under 200 chars"| D
-    C -->|"ok"| E[(body_text ✅)]
-    D -->|"ok"| E
-    D -->|"fail"| F[(status: failed)]
-```
+<p align="center">
+  <img src="docs/diagrams/article-extraction.png" width="614" alt="Article extraction flow. Tier 1 curl_cffi fetches the page and trafilatura extracts the text. A 403, 429 or 503, a CAPTCHA page, under 500 characters of HTML or under 200 characters of extracted text escalates to Tier 2, a crawl4ai stealth headless browser. Success saves body_text; failure sets status to failed.">
+</p>
 
 Block detection combines HTTP status codes, 11 anti-bot page markers and a minimum content length. The expensive browser only starts when the cheap path fails.
 
@@ -254,11 +206,13 @@ Block detection combines HTTP status codes, 11 anti-bot page markers and a minim
 
 [`run_aggregation.py`](src/equity_pipeline/extraction/run_aggregation.py) groups scored articles by `(ticker, metric_id)`. An article that matched several metrics counts toward each of them.
 
-$$
-w_i = \text{relevance}_i \cdot e^{-\lambda \cdot \text{days\_ago}_i}, \quad \lambda = 0.05
-\qquad
-\text{weighted\_sentiment} = \frac{\sum_i w_i \, s_i}{\sum_i w_i}
-$$
+```math
+w_i = \text{relevance}_i \cdot e^{-\lambda \cdot \text{days ago}_i}, \qquad \lambda = 0.05
+```
+
+```math
+\text{weighted sentiment} = \frac{\sum_i w_i \, s_i}{\sum_i w_i}
+```
 
 With λ = 0.05, a 30-day-old article carries about 22% of the weight of one published today. Each row also stores **dispersion** (standard deviation of the raw scores) and **volume** (number of articles), so the agent can tell strong agreement from thin or contradictory evidence.
 
@@ -292,33 +246,9 @@ Altman Z-Score is defined in `metrics.yaml` but deliberately **not computed**, b
 
 Built with **PydanticAI** in [`screening_agent.py`](src/equity_pipeline/agent/screening_agent.py).
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant PM as PM (Streamlit / CLI)
-    participant R as run_screening()
-    participant P as pipeline_runner
-    participant A as PydanticAI Agent
-    participant F as fundamentals_tool
-    participant N as news_tool
-    participant M as LLM
-
-    PM->>R: ticker, seed
-    R->>R: validate ticker against companies.yaml
-    opt refresh_data
-        R->>P: ingest → extract → FinBERT → aggregate → fundamentals
-    end
-    R->>A: run_sync(prompt, deps, temperature=0, seed)
-    A->>M: system prompt + task
-    M->>F: call
-    F-->>M: 25 growth + 11 risk metrics, per-metric sentiment, general signals
-    M->>N: call
-    N-->>M: live Yahoo headlines + SEC excerpts
-    M-->>A: ScreeningSummary (validated by Pydantic)
-    A-->>R: output + usage
-    R->>R: monitoring summary + run manifest
-    R-->>PM: brief + quality report
-```
+<p align="center">
+  <img src="docs/diagrams/screening-run.png" width="800" alt="Sequence of one screening run. The PM sends a ticker and seed to run_screening, which checks the ticker against companies.yaml and optionally refreshes the pipeline, then starts the PydanticAI agent. The LLM calls fundamentals_tool and news_tool, returns a validated ScreeningSummary, and run_screening records monitoring and a run manifest before returning the brief and quality report to the PM.">
+</p>
 
 ### Design decisions
 
@@ -407,6 +337,7 @@ From `run_manifests/MELI_20260727T084854Z_aa5f871b.json`:
 ├── config/
 │   ├── companies.yaml            # tickers allowed for screening, SEC form type, search name
 │   └── metrics.yaml              # 37 metric definitions + Google News query templates
+├── docs/diagrams/                # README diagrams: PNGs, Mermaid sources, render.py
 ├── data/                         # vendor CSVs + DB backup (git-ignored)
 ├── run_manifests/                # one JSON per agent run (git-ignored)
 └── src/equity_pipeline/

@@ -1,0 +1,57 @@
+---
+config:
+  theme: base
+  fontFamily: "Arial, Helvetica, sans-serif"
+  themeCSS: ".cluster-label { font-weight: bold; }"
+  themeVariables:
+    background: "#ffffff"
+    fontFamily: "Arial, Helvetica"
+    fontSize: 20px
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#000000"
+    secondaryColor: "#ffffff"
+    secondaryTextColor: "#000000"
+    secondaryBorderColor: "#000000"
+    tertiaryColor: "#ffffff"
+    tertiaryTextColor: "#000000"
+    tertiaryBorderColor: "#000000"
+    lineColor: "#000000"
+    textColor: "#000000"
+    clusterBkg: "#ffffff"
+    clusterBorder: "#000000"
+    titleColor: "#000000"
+    edgeLabelBackground: "#ffffff"
+  flowchart:
+    nodeSpacing: 18
+    rankSpacing: 44
+    padding: 10
+    wrappingWidth: 340
+    subGraphTitleMargin:
+      top: 6
+      bottom: 10
+---
+flowchart TB
+    subgraph SRC["Sources"]
+        SEC["SEC EDGAR<br/>8-K / 6-K feed"]
+        YF["Yahoo Finance<br/>news API"]
+        GN["Google News<br/>37 metric queries"]
+        CSV["Financial<br/>statements (CSV)"]
+    end
+
+    SEC & YF & GN --> ING["<b>Ingestion</b><br/>canonical URLs, SHA-256 IDs,<br/>idempotent upsert"]
+    ING --> ART[("articles<br/>(Postgres JSONB)")]
+
+    ART <--> NLP["<b>Enrichment</b><br/>text extraction,<br/>FinBERT scoring"]
+    ART --> AGG["<b>Time-decayed</b><br/><b>aggregation</b>"]
+    AGG --> MS[("metric_scores<br/>(Postgres)")]
+
+    CSV --> FUND["<b>36 ratios</b><br/>Red / Yellow / Green<br/>grades"]
+    FUND --> FM[("fundamental_metrics<br/>(Postgres)")]
+
+    T1["<b>Agent tool 1</b><br/>fundamentals_tool<br/>metrics + sentiment"]
+    T2["<b>Agent tool 2</b><br/>news_tool<br/>live Yahoo + SEC"]
+    MS & FM & ART --> T1
+    T1 & T2 --> LLM["<b>PydanticAI agent + LLM</b><br/>produces ScreeningSummary"]
+    LLM --> UI["Streamlit<br/>dashboard / CLI"]
+    LLM --> MAN["run_manifests/<br/>*.json"]

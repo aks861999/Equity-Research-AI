@@ -1,0 +1,34 @@
+---
+config:
+  theme: base
+  fontFamily: "Arial, Helvetica, sans-serif"
+  themeVariables:
+    background: "#ffffff"
+    fontFamily: "Arial, Helvetica"
+    fontSize: 20px
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#000000"
+    secondaryColor: "#ffffff"
+    secondaryTextColor: "#000000"
+    secondaryBorderColor: "#000000"
+    tertiaryColor: "#ffffff"
+    tertiaryTextColor: "#000000"
+    tertiaryBorderColor: "#000000"
+    lineColor: "#000000"
+    textColor: "#000000"
+    edgeLabelBackground: "#ffffff"
+  flowchart:
+    nodeSpacing: 70
+    rankSpacing: 70
+    padding: 12
+    wrappingWidth: 400
+---
+flowchart TB
+    A["Pending article"] --> B["<b>Tier 1: curl_cffi</b><br/>Chrome TLS fingerprint<br/>2 retries, linear backoff"]
+    B -->|"ok"| C["<b>trafilatura</b><br/>main-content extraction"]
+    B -->|"403 / 429 / 503,<br/>CAPTCHA page,<br/>or under 500 chars"| D["<b>Tier 2: crawl4ai</b><br/>stealth headless browser"]
+    C -->|"under 200 chars"| D
+    C -->|"ok"| E[("body_text saved")]
+    D -->|"ok"| E
+    D -->|"fail"| F[("status: failed")]

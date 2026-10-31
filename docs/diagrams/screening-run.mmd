@@ -1,0 +1,64 @@
+---
+config:
+  theme: base
+  fontFamily: "Arial, Helvetica, sans-serif"
+  fontSize: 18
+  themeCSS: ".labelText, .labelText > tspan, .loopText, .loopText > tspan { font-size: 18px; }"
+  themeVariables:
+    background: "#ffffff"
+    fontFamily: "Arial, Helvetica"
+    fontSize: 18px
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#000000"
+    secondaryColor: "#ffffff"
+    tertiaryColor: "#ffffff"
+    lineColor: "#000000"
+    textColor: "#000000"
+    actorBkg: "#ffffff"
+    actorBorder: "#000000"
+    actorTextColor: "#000000"
+    actorLineColor: "#000000"
+    signalColor: "#000000"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#ffffff"
+    labelBoxBorderColor: "#000000"
+    labelTextColor: "#000000"
+    loopTextColor: "#000000"
+  sequence:
+    width: 128
+    diagramMarginX: 6
+    diagramMarginY: 6
+    height: 62
+    actorMargin: 3
+    boxMargin: 8
+    messageMargin: 34
+    mirrorActors: false
+    actorFontSize: 18
+    actorFontWeight: 700
+    messageFontSize: 18
+    noteFontSize: 18
+---
+sequenceDiagram
+    participant PM as PM
+    participant R as run_<br/>screening()
+    participant A as PydanticAI<br/>agent
+    participant F as fundamentals_<br/>tool
+    participant N as news_<br/>tool
+    participant M as LLM
+
+    PM->>R: 1. ticker, seed
+    R->>R: 2. check ticker in<br/>companies.yaml
+    opt refresh_data
+        R->>R: 3. pipeline_runner:<br/>ingest, extract, FinBERT,<br/>aggregate, fundamentals
+    end
+    R->>A: 4. run_sync<br/>(temperature=0,<br/>seed)
+    A->>M: 5. system prompt + task
+    M->>F: 6. call
+    F-->>M: 7. 25 growth + 11 risk metrics,<br/>sentiment, general signals
+    M->>N: 8. call
+    N-->>M: 9. live Yahoo +<br/>SEC excerpts
+    M-->>A: 10. ScreeningSummary (validated by Pydantic)
+    A-->>R: 11. output + usage
+    R->>R: 12. monitoring summary<br/>+ run manifest
+    R-->>PM: 13. brief +<br/>quality report
