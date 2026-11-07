@@ -3,14 +3,14 @@ Google News fetcher — per-metric, per-company.
 
 Change from your original 1_google_news_fetcher.py: that script called
 gnewsdecoder() once per article per query, with a 10-15s sleep between calls
-to stay polite. Run straight, across 25 metrics x 5 articles x 4 companies,
-that's ~2000 decode calls -> 2000 x ~12s ~= 6-7 hours, most of it spent
-re-decoding the *same* handful of articles over and over (your own design doc
-points out one earnings article typically satisfies 8-10 metric queries).
+to stay polite. The same story can satisfy several metric queries, so it was
+decoded again for every query that returned it.
 
-Fix: collect raw (undecoded) RSS entries for all 25 metrics first, dedup on
-the raw Google redirect link, and only decode each unique link once. This
-typically cuts decode calls by 5-10x for very little added complexity.
+Fix: collect raw (undecoded) RSS entries for all metrics first, dedup on the
+raw Google redirect link, and only decode each unique link once. Measured on
+the July 2026 database backup, 177 metric matches collapse into 135 unique
+articles, i.e. about 24% fewer decode calls. Links already in the database
+are skipped as well.
 """
 import time
 import random

@@ -15,7 +15,7 @@ Install: `pip install pydantic-ai` (in addition to the repo's existing requireme
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -42,6 +42,8 @@ class AgentDeps:
     ticker: str
     db: object
     monitor: RunMonitor
+    # What each tool returned, kept so the run manifest can hash the real inputs.
+    tool_payloads: dict = field(default_factory=dict)
 
 
 def _build_model(settings: dict):
@@ -116,14 +118,19 @@ def build_agent() -> Agent:
         Yahoo Finance news and SEC EDGAR filings (risk metrics have no per-metric
         sentiment, so this general signal is supplied for the risk question)."""
         ctx.deps.monitor.record_tool_call("fundamentals_tool")
-        return load_fundamentals_bundle(ctx.deps.db, ctx.deps.ticker)
+        bundle = load_fundamentals_bundle(ctx.deps.db, ctx.deps.ticker)
+        # The fetch timestamp is left out: it differs every run and would change the hash alone.
+        ctx.deps.tool_payloads["fundamentals"] = bundle.model_dump(exclude={"data_as_of"})
+        return bundle
 
     @agent.tool
     async def news_tool(ctx: RunContext[AgentDeps]) -> NewsToolOutput:
         """Current news flow from the internet: live Yahoo Finance headlines and
         recent SEC EDGAR filing excerpts for the ticker."""
         ctx.deps.monitor.record_tool_call("news_tool")
-        return load_news_bundle(ctx.deps.ticker)
+        bundle = load_news_bundle(ctx.deps.ticker)
+        ctx.deps.tool_payloads["news"] = bundle.model_dump(exclude={"fetched_at"})
+        return bundle
 
     return agent
 
@@ -176,8 +183,9 @@ def run_screening(
         ticker=ticker,
         model_name=llm_settings()["model"],
         seed=seed,
-        fundamentals_payload={},  # populated below if you want full input replay; omitted here to keep manifests small
-        news_payload={},
+        # Only hashed, never stored, so manifests stay small.
+        fundamentals_payload=deps.tool_payloads.get("fundamentals", {}),
+        news_payload=deps.tool_payloads.get("news", {}),
         monitoring_summary=monitoring_summary,
         final_output=output.model_dump(),
     )

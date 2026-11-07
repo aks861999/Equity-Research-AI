@@ -159,7 +159,7 @@ Filings are treated as immutable: if a section is already stored, it is never do
 <td>
 37 query templates in <a href="config/metrics.yaml"><code>metrics.yaml</code></a>, one per metric, with the company name substituted in.
 The search window <b>widens adaptively</b> (<code>when:1m → 3m → 1y</code>) when a query returns fewer than 2 results.
-Links are <b>deduplicated before decoding</b>: one earnings story typically matches 8–10 metric queries, so collapsing on the raw redirect link first cuts slow <code>gnewsdecoder</code> calls by about 5–10×. That turns a run of roughly 6 hours into minutes. The database is also checked so previously decoded links are skipped.
+Links are <b>deduplicated before decoding</b>: one story can match several metric queries, so the raw redirect links are collapsed first and each is decoded once with the slow <code>gnewsdecoder</code>. In the stored data, 177 metric matches collapse into 135 unique articles, about 24% fewer decode calls. The database is also checked so previously decoded links are skipped.
 </td>
 </tr>
 <tr>
@@ -219,6 +219,8 @@ With λ = 0.05, a 30-day-old article carries about 22% of the weight of one publ
 ### Stage 7: Fundamentals and threshold grading
 
 [`run_growth_fundamentals.py`](src/equity_pipeline/extraction/run_growth_fundamentals.py) and [`run_risk_fundamentals.py`](src/equity_pipeline/extraction/run_risk_fundamentals.py) compute ratios from the vendor statements and grade them **Red / Yellow / Green** against fixed thresholds.
+
+The two statements arrive in different units: income statements in full currency units, balance sheets in millions (`23494920.18 MM`). [`statements.py`](src/equity_pipeline/extraction/statements.py) converts the balance sheet once, so every ratio that mixes the two is correct. Before this was fixed, ROE came out around 75,000 and still graded Green.
 
 <details>
 <summary><b>All 36 metrics</b></summary>
@@ -280,7 +282,7 @@ Counts tool calls per tool with timestamps (PydanticAI doesn't track these) and 
 Addresses three separate sources of drift:
 - *Sampling*: `temperature=0`, near-zero `top_p`, fixed `seed`
 - *Prompt or schema changes*: a `PROMPT_VERSION` stored in each manifest
-- *Data changes*: a hash of the tool inputs
+- *Data changes*: a hash of what each tool returned (fetch timestamps excluded), stored per tool and combined, so a changed hash shows whether the metrics or the live news moved
 
 Every run writes `run_manifests/<ticker>_<ts>_<uuid>.json`.
 
@@ -320,11 +322,13 @@ From `run_manifests/MELI_20260727T084854Z_aa5f871b.json`:
     "wall_clock_seconds": 55.7
   },
   "final_output": {
-    "growth_relevance_verdict": "Potentially relevant",
-    "growth_relevance_reasoning": "MELI shows strong top-line growth with revenue up ~102% YoY … positive sentiment on operating profit growth (0.59 weighted_sentiment, very low dispersion). Gross margin is healthy at 43.5% (Green grade) …"
+    "growth_relevance_verdict": "Potentially relevant"
   }
 }
 ```
+
+> [!NOTE]
+> This run is from July 2026, before the balance sheet unit fix, so the ratio-based commentary in `final_output` is left out. The monitoring figures are unaffected.
 
 ---
 
@@ -346,7 +350,7 @@ From `run_manifests/MELI_20260727T084854Z_aa5f871b.json`:
     ├── sources/                  # sec_edgar · google_news · yahoo_finance
     ├── ingestion/                # dedup · upsert · queries · time_utils
     ├── db/                       # PostgresClient (JSONB document store)
-    ├── extraction/               # article_extractor · sentiment · aggregation · fundamentals · LLM summary
+    ├── extraction/               # article_extractor · sentiment · aggregation · statements · fundamentals · LLM summary
     └── agent/                    # screening_agent · schemas · data_access · pipeline_runner
                                   # monitoring · reproducibility · evaluation · metric_definitions
 ```
@@ -372,7 +376,8 @@ From `run_manifests/MELI_20260727T084854Z_aa5f871b.json`:
 
 The gaps below are known, not oversights.
 
-- [ ] **Input hash is not yet wired up.** `build_run_manifest()` is currently given empty payloads, so `input_data_hash` is the same on every run. The next step is to pass in the actual tool outputs.
+- [ ] **MELI's statements are in Argentine pesos, not dollars.** Checked against MercadoLibre's Q3 2026 10-Q: every balance sheet line in the CSV equals the filed US dollar figure times about 1,451 pesos per dollar (the year-end 2025 rate). Ratios within one statement set are unaffected, but MELI's growth rates are nominal and inflated by Argentine inflation. Replacing the MELI rows with US dollar statements from the 10-K would fix this.
+- [ ] **ROIC is distorted for net-cash companies.** Invested capital is debt plus equity minus cash, so it approaches zero when cash is large (MELI shows about 1,000%). A definition that handles net cash is needed.
 - [ ] **Google News is off by default** in `main.py` (it's the slowest, most rate-limited step). The agent's refresh can turn it on.
 - [ ] **Fiscal years are hard-coded** (2023–2025) in the fundamentals calculators. These should come from the CSV headers.
 - [ ] **Fundamentals use single-period snapshots.** Trend and peer-relative grading for metrics marked "Ungraded" is not built yet.

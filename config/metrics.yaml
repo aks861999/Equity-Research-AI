@@ -226,8 +226,10 @@ metrics:
     name: "Goodwill & Intangibles / Total Assets"
     search_template: '{COMPANY} ("goodwill impairment" OR "impairment charge" OR "asset write-down" OR "intangible impairment")'
 
+  # The id keeps its historical "trend" wording so stored rows (TICKER:r12_risk_provision_trend)
+  # stay valid. The metric is a single-year ratio (Prov For Risk Charges / Total Liabilities).
   - metric_id: r12_risk_provision_trend
     metric_number: 37
     theme: risk
-    name: "Risk-Provision Trend (Prov For Risk Charges)"
+    name: "Risk Provisions / Total Liabilities (Prov For Risk Charges)"
     search_template: '{COMPANY} ("legal provision" OR "litigation reserve" OR "warranty provision" OR "contingent liability" OR "lawsuit settlement" OR "restructuring provision")'

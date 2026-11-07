@@ -79,6 +79,11 @@ def build_run_manifest(
         "seed": seed,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "input_data_hash": _stable_hash({"fundamentals": fundamentals_payload, "news": news_payload}),
+        # Per tool, so a changed hash shows whether the metrics or the live news moved.
+        "input_data_hashes": {
+            "fundamentals": _stable_hash(fundamentals_payload),
+            "news": _stable_hash(news_payload),
+        },
         "monitoring": monitoring_summary,
         "final_output": final_output,
     }

@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+from .statements import load_statements
+
 logger = logging.getLogger("run_risk_fundamentals")
 
 TICKER_MAP = {
@@ -80,22 +82,11 @@ def run_risk_fundamental_extraction(db):
         """)
         db.conn.commit()
 
-    root_dir = Path(__file__).resolve().parents[3]
-    is_path = root_dir / "data" / "IncomeStatements.csv"
-    bs_path = root_dir / "data" / "BalanceSheets.csv"
-    
-    if not is_path.exists() or not bs_path.exists():
-        logger.error("Could not find CSV files in the data/ folder.")
+    # Balance sheet already converted from millions to full units
+    statements = load_statements()
+    if statements is None:
         return
-
-    is_df = pd.read_csv(is_path)
-    is_df.columns = is_df.columns.astype(str).str.strip()
-    bs_df = pd.read_csv(bs_path)
-    bs_df.columns = bs_df.columns.astype(str).str.strip()
-    
-    for col in ['2025', '2024']:
-        bs_df[col] = bs_df[col].astype(str).str.replace(' MM', '').str.strip()
-        bs_df[col] = pd.to_numeric(bs_df[col], errors='coerce')
+    is_df, bs_df = statements
 
     inserted = 0
     with db.conn.cursor() as cur:
