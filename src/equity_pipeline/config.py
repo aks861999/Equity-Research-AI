@@ -43,16 +43,32 @@ def db_settings() -> dict:
         "db_name": os.getenv("POSTGRES_DB", "equity_research"),
         "user": os.getenv("POSTGRES_USER"),
         "password": os.getenv("POSTGRES_PASSWORD"),
+        # empty for the local container; "require" for a hosted database such as Supabase
+        "sslmode": os.getenv("POSTGRES_SSLMODE", "").strip() or None,
     }
+
+
+def target_database_url() -> str:
+    """Connection URL of the hosted database the prepared data is published to (for example the
+    Supabase "session pooler" string). Used only by scripts/online/*; the app itself reads POSTGRES_*."""
+    return os.getenv("TARGET_DATABASE_URL", "").strip()
 
 
 def llm_settings() -> dict:
-    """Only needed once the future summarization/sentiment stage is wired up."""
+    """The OpenAI-compatible endpoint of the screening agent. No defaults: all three come from the
+    environment (.env locally, the host's secret store online); `missing_llm_settings` names what is unset."""
     return {
-        "base_url": os.getenv("LLM_BASE_URL", "https://fhgenie.fraunhofer.de/v1"),
-        "api_key": os.getenv("MANAGED_LLM_API_KEY", ""),
-        "model": os.getenv("LLM_MODEL", "MiniMaxAI/MiniMax-M2.5"),
+        "base_url": os.getenv("LLM_BASE_URL", "").strip(),
+        "api_key": os.getenv("MANAGED_LLM_API_KEY", "").strip(),
+        "model": os.getenv("LLM_MODEL", "").strip(),
     }
+
+
+def missing_llm_settings(settings: dict | None = None) -> list[str]:
+    """Names of the LLM environment variables that are not set."""
+    s = settings or llm_settings()
+    names = {"base_url": "LLM_BASE_URL", "api_key": "MANAGED_LLM_API_KEY", "model": "LLM_MODEL"}
+    return [env for key, env in names.items() if not s.get(key)]
 
 
 def sec_user_agent() -> str:
@@ -60,7 +76,18 @@ def sec_user_agent() -> str:
     return os.getenv("SEC_USER_AGENT", "")
 
 
-def gnews_settings() -> dict:
-    return {
-        "api_key": os.getenv("GNEWS_API_KEY", "")
-    }
+def app_mode() -> str:
+    """'full' (default, your PC: every step incl. SearXNG, FinBERT and the browser fallback) or
+    'demo' (the online dashboard: live SEC EDGAR + Yahoo Finance only, text read with curl_cffi only,
+    no SearXNG, no FinBERT, no browser; everything else is read from the shared database)."""
+    mode = os.getenv("APP_MODE", "full").strip().lower()
+    return mode if mode in ("full", "demo") else "full"
+
+
+def is_demo() -> bool:
+    return app_mode() == "demo"
+
+
+def searxng_url() -> str:
+    """Base URL of the local SearXNG container (news search, replaces Google News)."""
+    return os.getenv("SEARXNG_URL", "http://localhost:8888").rstrip("/")

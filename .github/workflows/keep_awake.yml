@@ -1,0 +1,45 @@
+# Best effort: open the Streamlit worker in a real (headless) browser twice a day, so its WebSocket
+# session counts as traffic. A plain HTTP request only returns the page shell and may not count.
+# Needs the repository secret STREAMLIT_APP_URL (for example https://your-app-name.streamlit.app).
+# If the app is already asleep, the script clicks the "get this app back up" button.
+name: Keep Streamlit worker awake
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install a headless browser
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: Open the app and wait for it
+        env:
+          STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
+        run: |
+          python - <<'PY'
+          import os, sys
+          from playwright.sync_api import sync_playwright
+
+          url = os.environ.get("STREAMLIT_APP_URL", "").rstrip("/")
+          if not url:
+              sys.exit("Set the repository secret STREAMLIT_APP_URL")
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page()
+              page.goto(url + "/?ping=1", wait_until="domcontentloaded", timeout=120000)
+              wake = page.get_by_role("button", name="Yes, get this app back up!")
+              if wake.count():
+                  wake.first.click()
+                  print("the app was asleep: wake-up requested")
+              page.wait_for_timeout(45000)          # let the app boot and the session open
+              print("title:", page.title())
+              browser.close()
+          PY

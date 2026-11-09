@@ -19,7 +19,7 @@ class GrowthMetric(BaseModel):
     description: str
     good_direction: str
     fundamental_value: float | None = Field(
-        None, description="The computed financial ratio/figure from BalanceSheets.csv / IncomeStatements.csv."
+        None, description="The computed financial ratio/figure from the company's SEC income statement and balance sheet."
     )
     fundamental_grade: str = Field(
         "N/A", description="Red/Yellow/Green/Ungraded/N/A threshold grade, see run_growth_fundamentals.get_grade()."
@@ -69,9 +69,24 @@ class GeneralSentimentSignal(BaseModel):
     )
 
 
+class FundamentalsPeriod(BaseModel):
+    """Which statements the ratios come from, so the agent does not have to guess."""
+    fiscal_year_end: str | None = Field(None, description="End date of the latest ANNUAL statement, e.g. 2025-12-31.")
+    period_type: str = Field("annual", description="Always 'annual': ratios use the 10-K / 20-F, never a quarter.")
+    currency: str | None = Field(None, description="Reporting currency of those statements. Absolute amounts "
+                                                    "(approximate free cash flow) are in this currency, unconverted.")
+    note: str = ("The ratios are computed from the latest ANNUAL statements, so they describe the fiscal year "
+                 "ending on fiscal_year_end. Quarterly or later figures quoted in news or filings (e.g. a Q3 "
+                 "operating margin) cover a different period and will not match these ratios.")
+
+
 class FundamentalsToolOutput(BaseModel):
     ticker: str
     data_as_of: str
+    period: FundamentalsPeriod | None = Field(
+        None, description="Fiscal year-end, period type and currency of the fundamental ratios "
+                           "(None for rows computed before this was recorded)."
+    )
     growth_metrics: list[GrowthMetric]
     risk_metrics: list[RiskMetric]
     general_sentiment: list[GeneralSentimentSignal] = Field(
@@ -87,7 +102,16 @@ class NewsArticleItem(BaseModel):
     title: str
     source: str
     published_at: str | None = None
-    snippet: str = Field(..., description="Short excerpt/summary of the article body, used to ground positives/negatives.")
+    snippet: str = Field(..., description="The lead of the article's text when has_article_text is true, "
+                                           "otherwise just the headline. Used to ground positives/negatives.")
+    has_article_text: bool = Field(False, description="True when snippet is real article text (only for "
+                                                      "company-specific headlines, newest first), false when it "
+                                                      "is only the title.")
+    about_company: bool = Field(True, description="True when the article is about the company: named in the "
+                                                  "title, or named repeatedly in its text. False = a market-wide "
+                                                  "or unrelated piece that mentions it at most in passing (when "
+                                                  "no text is stored only the title is checked): do not use it "
+                                                  "as evidence about the company.")
 
 
 class SecFilingItem(BaseModel):

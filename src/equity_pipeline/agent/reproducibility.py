@@ -5,15 +5,15 @@ An LLM-in-the-loop pipeline has three independent sources of
 non-determinism, and each is handled separately here:
 
 1. Model sampling randomness
-   -> model_settings sets temperature=0 and top_p=0 (greedy decoding) and,
-      if the backing model supports it, a fixed `seed`. This does not make
+   -> model_settings sets temperature=0 and top_p=0.00001 (practically greedy decoding)
+      and, if the backing model supports it, a fixed `seed`. This does not make
       outputs bit-for-bit identical on every provider (some hosted models
       are not perfectly deterministic even at temperature=0), but it removes
       the single biggest source of run-to-run drift and is the standard,
       practical definition of "reproducible" for LLM pipelines.
 
 2. Input data drift
-   -> the CSV fundamentals and DB-derived metric_scores are a snapshot in
+   -> the SEC-derived fundamentals and DB-derived metric_scores are a snapshot in
       time. `build_run_manifest()` hashes the exact data pulled into the
       prompt (fundamentals_tool + news_tool output) so that any two runs can
       be diffed: if the hash matches and the model/temperature/prompt
@@ -37,8 +37,12 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-PROMPT_VERSION = "screening-agent-v1"
+PROMPT_VERSION = "screening-agent-v9"
 DEFAULT_SEED = 42
+# Layout of the manifest file. 1: the first layout. 2: adds manifest_version and
+# risk_flag_count_corrected. A reader should use load_run_manifest(), which fills in what an older
+# file lacks, instead of reading the JSON directly.
+MANIFEST_VERSION = 2
 MANIFEST_DIR = Path(__file__).resolve().parents[3] / "run_manifests"
 
 
@@ -70,8 +74,12 @@ def build_run_manifest(
     news_payload: dict,
     monitoring_summary: dict,
     final_output: dict,
+    risk_flag_correction: dict | None = None,
 ) -> dict:
+    """`risk_flag_correction`: {"model_said": n, "actual": m} when the run replaced the model's
+    risk_flag_count with the real count of Red risk grades, else None."""
     manifest = {
+        "manifest_version": MANIFEST_VERSION,
         "run_id": run_id,
         "ticker": ticker,
         "prompt_version": PROMPT_VERSION,
@@ -86,6 +94,7 @@ def build_run_manifest(
         },
         "monitoring": monitoring_summary,
         "final_output": final_output,
+        "risk_flag_count_corrected": risk_flag_correction,
     }
     return manifest
 
@@ -96,3 +105,17 @@ def save_run_manifest(manifest: dict) -> Path:
     with open(path, "w") as f:
         json.dump(manifest, f, indent=2, default=str)
     return path
+
+
+def load_run_manifest(path) -> dict:
+    """A saved manifest of any version. Keys that later versions added are filled in, so a reader
+    never has to ask "which version wrote this file":
+      manifest_version           1 for a file without one
+      risk_flag_count_corrected  None (no correction was recorded)
+      pipeline_counts            None (the run did not record what the refresh did)"""
+    with open(path) as f:
+        manifest = json.load(f)
+    manifest.setdefault("manifest_version", 1)
+    manifest.setdefault("risk_flag_count_corrected", None)
+    manifest.setdefault("pipeline_counts", None)
+    return manifest

@@ -1,15 +1,19 @@
 # One entry per company you're tracking.
 #
 # ticker              - used as the CouchDB partition key (ticker field on every doc),
-#                        and passed to yfinance / google_news / SEC EDGAR.
+#                        and passed to yfinance / SEC EDGAR / the news search.
 # sec_form_type       - '8-K' for US domestic issuers, '6-K' for foreign private issuers.
 #                        OMIT this key entirely for any ticker that shouldn't go through
 #                        sec_edgar.py at all (e.g. non-US-listed names EDGAR has no filings
 #                        for). main.py skips the SEC step whenever this key is absent —
 #                        do not set it to null/None, just leave the key out.
 # primary_search_name - the exact string substituted into every metrics.yaml
-#                        {COMPANY} template for Google News queries. Use the name
+#                        {COMPANY} template for the news search queries. Use the name
 #                        that reads naturally in a headline search, not the legal name.
+#
+# Fundamentals come from SEC filings, so only SEC filers that are not banks or insurers
+# belong here (banks such as JPM are skipped by the fundamentals runners; non-US names
+# such as ADS.DE have no SEC statements; F and XOM have no debt lines in OpenBB).
 companies:
   - ticker: MELI
     sec_form_type: "8-K"
@@ -19,10 +23,30 @@ companies:
     sec_form_type: "6-K"
     primary_search_name: "Global-E Online"
 
-  # No sec_form_type -> sec_edgar.py is skipped for this ticker (not a US EDGAR filer).
-  - ticker: ADS.DE
-    primary_search_name: "Adidas"
+  - ticker: AAPL
+    sec_form_type: "8-K"
+    primary_search_name: "Apple"
 
-  # No sec_form_type -> sec_edgar.py is skipped for this ticker (not a US EDGAR filer).
-  - ticker: 5108.T
-    primary_search_name: "Bridgestone"
+  - ticker: NVDA
+    sec_form_type: "8-K"
+    primary_search_name: "Nvidia"
+
+  - ticker: KO
+    sec_form_type: "8-K"
+    primary_search_name: "Coca-Cola"
+
+  - ticker: WMT
+    sec_form_type: "8-K"
+    primary_search_name: "Walmart"
+
+  - ticker: PFE
+    sec_form_type: "8-K"
+    primary_search_name: "Pfizer"
+
+  - ticker: T
+    sec_form_type: "8-K"
+    primary_search_name: "AT&T"
+
+  - ticker: DUK
+    sec_form_type: "8-K"
+    primary_search_name: "Duke Energy"

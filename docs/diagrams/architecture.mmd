@@ -35,8 +35,8 @@ flowchart TB
     subgraph SRC["Sources"]
         SEC["SEC EDGAR<br/>8-K / 6-K feed"]
         YF["Yahoo Finance<br/>news API"]
-        GN["Google News<br/>37 metric queries"]
-        CSV["Financial<br/>statements (CSV)"]
+        GN["News search (SearXNG)<br/>36 metric queries"]
+        CSV["SEC financial<br/>statements<br/>(via OpenBB)"]
     end
 
     SEC & YF & GN --> ING["<b>Ingestion</b><br/>canonical URLs, SHA-256 IDs,<br/>idempotent upsert"]

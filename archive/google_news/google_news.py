@@ -1,4 +1,7 @@
 """
+ARCHIVED: retired in favour of the SearXNG fetcher (src/equity_pipeline/sources/searxng_news.py).
+Kept for reference only; see README.md in this folder before reusing it.
+
 Google News fetcher — per-metric, per-company.
 
 Change from your original 1_google_news_fetcher.py: that script called

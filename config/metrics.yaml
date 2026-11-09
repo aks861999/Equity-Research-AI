@@ -1,7 +1,10 @@
-# 25 per-metric Google News search string templates, from the design doc.
-# {COMPANY} is substituted with each company's primary_search_name at query time.
-# `when:1m` / `when:3m` / `when:1y` is appended by the fetcher, not baked in here,
-# so the automatic widen-if-too-few-results logic can swap it per metric per run.
+# 36 per-metric news search templates, from the design doc.
+# The news fetcher (sources/searxng_news.py, short_queries) does NOT send these OR chains: they
+# returned 0 results on DuckDuckGo News. It sends "<primary_search_name> <phrase>" for the FIRST
+# quoted phrase, and the SECOND only if the first found too few articles. Later phrases are not
+# used. So the ORDER of the phrases matters: put the metric's core term first.
+# Only growth metrics are searched by default; risk templates are used with --include-risk.
+# No time filter is added: SearXNG's time_range makes it skip DuckDuckGo and Brave News.
 metrics:
   # --- Growth ---
   - metric_id: m01_revenue_growth
@@ -163,7 +166,7 @@ metrics:
   - metric_id: r01_altman_z_score
     metric_number: 26
     theme: risk
-    name: "Altman Z-Score (distress/bankruptcy risk)"
+    name: "Altman Z''-Score (distress/bankruptcy risk)"
     search_template: '{COMPANY} ("bankruptcy risk" OR "financial distress" OR "going concern" OR "solvency concerns" OR "credit rating downgrade" OR "Altman Z-Score")'
 
   - metric_id: r02_debt_to_equity
@@ -225,11 +228,3 @@ metrics:
     theme: risk
     name: "Goodwill & Intangibles / Total Assets"
     search_template: '{COMPANY} ("goodwill impairment" OR "impairment charge" OR "asset write-down" OR "intangible impairment")'
-
-  # The id keeps its historical "trend" wording so stored rows (TICKER:r12_risk_provision_trend)
-  # stay valid. The metric is a single-year ratio (Prov For Risk Charges / Total Liabilities).
-  - metric_id: r12_risk_provision_trend
-    metric_number: 37
-    theme: risk
-    name: "Risk Provisions / Total Liabilities (Prov For Risk Charges)"
-    search_template: '{COMPANY} ("legal provision" OR "litigation reserve" OR "warranty provision" OR "contingent liability" OR "lawsuit settlement" OR "restructuring provision")'

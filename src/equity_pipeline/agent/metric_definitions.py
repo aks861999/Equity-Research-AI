@@ -146,16 +146,21 @@ GROWTH_METRIC_DEFINITIONS: dict[str, dict[str, str]] = {
     },
 }
 
-# --- Risk-screening fundamentals (11 of 12 metrics are actually computed) --
-# NOTE: r01_altman_z_score is intentionally excluded — it requires market
-# capitalization, which is not present in BalanceSheets.csv / IncomeStatements.csv,
-# and run_risk_fundamentals.py skips it rather than compute it on bad data.
+# --- Risk-screening fundamentals (11 metrics, all computed from SEC statements) --
+# r01 is the Altman Z'' score (non-manufacturer version, book equity instead of
+# market cap, so no price data is needed). The old r12 (risk provisions) was
+# removed: the vendor field it used has no SEC equivalent.
 # There is no per-metric news sentiment for risk metrics (Google News fetch
 # for the risk theme was not run), so these carry fundamental_value/grade
 # only. General, company-level sentiment (not metric-specific) from Yahoo
 # Finance news and SEC EDGAR filings is supplied separately as extra context
 # for the risk question.
 RISK_METRIC_DEFINITIONS: dict[str, dict[str, str]] = {
+    "r01_altman_z_score": {
+        "name": "Altman Z''-Score (distress/bankruptcy risk)",
+        "description": "Composite distress score (non-manufacturer version) from working capital, retained earnings, EBIT and book equity relative to assets and liabilities. Above 2.6 is considered safe, below 1.1 is the distress zone, in between is a grey zone.",
+        "good_direction": "higher is lower-risk (note: opposite direction to most other risk metrics)",
+    },
     "r02_debt_to_equity": {
         "name": "Debt-to-Equity Ratio",
         "description": "Total debt relative to shareholder equity. High values mean the company relies heavily on debt financing.",
@@ -204,11 +209,6 @@ RISK_METRIC_DEFINITIONS: dict[str, dict[str, str]] = {
     "r11_goodwill_intangibles": {
         "name": "Goodwill & Intangibles / Total Assets",
         "description": "Share of the balance sheet made up of goodwill/intangibles from past acquisitions. High values create impairment risk if those assets lose value.",
-        "good_direction": "lower is lower-risk",
-    },
-    "r12_risk_provision_trend": {
-        "name": "Risk-Provision / Total Liabilities",
-        "description": "Provisions for legal, warranty or other risk charges relative to total liabilities. Rising provisions can foreshadow litigation, warranty, or restructuring costs.",
         "good_direction": "lower is lower-risk",
     },
 }

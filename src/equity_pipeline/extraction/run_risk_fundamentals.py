@@ -4,16 +4,10 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from .statements import load_statements
+from ..sources.sec_fundamentals import configured_tickers, load_company_statements
+from .fundamentals_store import ensure_table, upsert_metric
 
 logger = logging.getLogger("run_risk_fundamentals")
-
-TICKER_MAP = {
-    "MELI US Equity": "MELI",
-    "5108 JP Equity": "5108.T",
-    "GLBE US Equity": "GLBE",
-    "ADS GR Equity": "ADS.DE"
-}
 
 def get_risk_grade(metric_id, value):
     """Applies Risk Thresholds (Red = High Risk, Green = Low Risk)."""
@@ -21,7 +15,13 @@ def get_risk_grade(metric_id, value):
         return "N/A"
     
     val = float(value)
-    if metric_id == "r02_debt_to_equity":
+    if metric_id == "r01_altman_z_score":
+        # Altman Z'' (non-manufacturer version): safe above 2.6, distress below 1.1.
+        # Unlike the other risk metrics, HIGHER is safer.
+        if val < 1.1: return "Red"
+        elif val < 2.6: return "Yellow"
+        else: return "Green"
+    elif metric_id == "r02_debt_to_equity":
         if val > 2.0: return "Red"
         elif val > 1.0: return "Yellow"
         else: return "Green"
@@ -61,111 +61,84 @@ def get_risk_grade(metric_id, value):
         if val > 0.4: return "Red"
         elif val > 0.2: return "Yellow"
         else: return "Green"
-    elif metric_id == "r12_risk_provision_trend":
-        if val > 0.05: return "Red"
-        elif val > 0.01: return "Yellow"
-        else: return "Green"
     return "Ungraded"
 
-def run_risk_fundamental_extraction(db):
-    with db.conn.cursor() as cur:
-        # Uses the SAME table as growth fundamentals!
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS fundamental_metrics (
-                id TEXT PRIMARY KEY,
-                ticker TEXT,
-                metric_id TEXT,
-                fundamental_value FLOAT,
-                fundamental_grade TEXT,
-                calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        db.conn.commit()
+def compute_risk_metrics(stm) -> dict[str, float]:
+    """The 11 risk ratios for one company (NaN where an input is missing).
+    Pure function of the SEC statements: no database, so the coverage report can reuse it."""
+    v = stm.get  # v(0, openbb_field) = latest fiscal year; suffix _25 below means "latest"
 
-    # Balance sheet already converted from millions to full units
-    statements = load_statements()
-    if statements is None:
-        return
-    is_df, bs_df = statements
+    # Data points
+    ebit_25 = v(0, 'ebit')
+    da_25 = v(0, 'depreciation_and_amortization')
+    pretax_25 = v(0, 'total_pretax_income')
+    int_exp_25 = v(0, 'interest_expense')
+    extra_cred_25 = v(0, 'extraordinary_credit')
+    extra_chg_25 = v(0, 'extraordinary_charge')
+
+    assets_25 = v(0, 'total_assets')
+    eq_25 = v(0, 'total_common_equity')
+    total_liab_25 = v(0, 'total_liabilities')
+    std_25, ltd_25 = v(0, 'short_term_debt_total'), v(0, 'long_term_debt_noncurrent')
+    cash_25 = v(0, 'cash_and_short_term_investments')
+    ca_25, cl_25 = v(0, 'total_current_assets'), v(0, 'total_current_liabilities')
+    inv_25 = v(0, 'inventory')
+    re_25 = v(0, 'retained_earnings')
+    intangibles_25 = v(0, 'intangibles_total')
+
+    # Calculate 11 Risk Metrics
+    metrics = {}
+    total_debt = std_25 + ltd_25 if (std_25 is not None and ltd_25 is not None) else np.nan
+    ebitda_25 = ebit_25 + da_25 if (ebit_25 is not None and da_25 is not None) else np.nan
+
+    # 1. Altman Z'' (non-manufacturer version, used for every company). It replaces the
+    #    original's market-cap term with book equity, so it needs no price data:
+    #    Z'' = 6.56*WC/TA + 3.26*RE/TA + 6.72*EBIT/TA + 1.05*BookEquity/TotalLiabilities
+    #    Missing inputs are NaN and propagate, so no value is stored.
+    if assets_25 and total_liab_25:
+        metrics["r01_altman_z_score"] = (
+            6.56 * (ca_25 - cl_25) / assets_25
+            + 3.26 * re_25 / assets_25
+            + 6.72 * ebit_25 / assets_25
+            + 1.05 * eq_25 / total_liab_25
+        )
+
+    metrics["r02_debt_to_equity"] = total_debt / eq_25 if (total_debt is not None and eq_25) else np.nan
+    metrics["r03_debt_ratio"] = total_liab_25 / assets_25 if (total_liab_25 is not None and assets_25) else np.nan
+    metrics["r04_net_debt_to_ebitda"] = (total_debt - cash_25) / ebitda_25 if (total_debt is not None and cash_25 is not None and ebitda_25) else np.nan
+    metrics["r05_short_term_debt_ratio"] = std_25 / total_debt if (std_25 is not None and total_debt and total_debt > 0) else np.nan
+
+    metrics["r06_current_ratio"] = ca_25 / cl_25 if cl_25 else np.nan
+    metrics["r07_quick_ratio"] = (ca_25 - inv_25) / cl_25 if (ca_25 is not None and inv_25 is not None and cl_25) else np.nan
+    metrics["r08_interest_coverage"] = ebit_25 / int_exp_25 if int_exp_25 else np.nan
+
+    metrics["r09_retained_earnings_deficit"] = re_25 / assets_25 if (re_25 is not None and assets_25) else np.nan
+
+    extra_items = (abs(extra_cred_25 or 0) + abs(extra_chg_25 or 0))
+    metrics["r10_non_recurring_items"] = extra_items / abs(pretax_25) if (pretax_25 and abs(pretax_25) > 0) else np.nan
+
+    metrics["r11_goodwill_intangibles"] = intangibles_25 / assets_25 if (intangibles_25 is not None and assets_25) else np.nan
+    return metrics
+
+
+def run_risk_fundamental_extraction(db, tickers: list[str] | None = None):
+    ensure_table(db)  # the SAME table as the growth fundamentals
 
     inserted = 0
     with db.conn.cursor() as cur:
-        for bb_ticker, ticker in TICKER_MAP.items():
-            is_comp = is_df[is_df['BB_Ticker'] == bb_ticker]
-            bs_comp = bs_df[bs_df['BB_Ticker'] == bb_ticker]
-            
-            if is_comp.empty or bs_comp.empty:
+        for ticker in tickers or configured_tickers():
+            stm = load_company_statements(ticker)
+            if stm is None:
+                continue  # not an SEC filer (non-US names are out of scope for now) or fetch failed
+            if stm.is_financial:
+                logger.warning("%s is a bank/insurer: industrial ratios are not meaningful, skipped", ticker)
                 continue
-
-            def is_val(year, field):
-                row = is_comp[is_comp['Year_'] == year]
-                if row.empty: return np.nan
-                val = row[field].values[0]
-                return float(val) if pd.notna(val) else np.nan
-
-            def bs_val(year, item):
-                row = bs_comp[bs_comp['index'] == item]
-                if row.empty: return np.nan
-                return row[str(year)].values[0]
-
-            # Data points
-            rev_25 = is_val(2025, 'NET SALES OR REVENUES (1001)')
-            ebit_25 = is_val(2025, 'EARNINGS BEFORE INTEREST AND TAXES (EBIT) (18191)')
-            da_25 = is_val(2025, 'DEPRECIATION, DEPLETION AND AMORTIZATION (1151)')
-            pretax_25 = is_val(2025, 'PRETAX INCOME (1401)')
-            int_exp_25 = is_val(2025, 'INTEREST EXPENSE ON DEBT (1251)')
-            extra_cred_25 = is_val(2025, 'EXTRAORDINARY CREDIT - PRETAX (1253)')
-            extra_chg_25 = is_val(2025, 'EXTRAORDINARY CHARGE - PRETAX (1254)')
-
-            assets_25 = bs_val(2025, 'Total Assets')
-            eq_25 = bs_val(2025, 'Common Equity')
-            total_liab_25 = bs_val(2025, 'Total Liabilities')
-            std_25, ltd_25 = bs_val(2025, 'Short Term Debt'), bs_val(2025, 'Long Term Debt')
-            cash_25 = bs_val(2025, 'Cash And Short Term Investments')
-            ca_25, cl_25 = bs_val(2025, 'Current Assets'), bs_val(2025, 'Current Liabilities')
-            inv_25 = bs_val(2025, 'Inventories')
-            re_25 = bs_val(2025, 'Retained Earnings')
-            intangibles_25 = bs_val(2025, 'Intangible Investments')
-            risk_prov_25 = bs_val(2025, 'Prov For Risk Charges')
-
-            # Calculate 12 Risk Metrics
-            metrics = {}
-            total_debt = std_25 + ltd_25 if (std_25 is not None and ltd_25 is not None) else np.nan
-            ebitda_25 = ebit_25 + da_25 if (ebit_25 is not None and da_25 is not None) else np.nan
-            
-            # 1. Altman Z-Score requires Market Cap, which we don't have. We skip it to avoid bad data.
-            # metrics["r01_altman_z_score"] = ... 
-            
-            metrics["r02_debt_to_equity"] = total_debt / eq_25 if (total_debt is not None and eq_25) else np.nan
-            metrics["r03_debt_ratio"] = total_liab_25 / assets_25 if (total_liab_25 is not None and assets_25) else np.nan
-            metrics["r04_net_debt_to_ebitda"] = (total_debt - cash_25) / ebitda_25 if (total_debt is not None and cash_25 is not None and ebitda_25) else np.nan
-            metrics["r05_short_term_debt_ratio"] = std_25 / total_debt if (std_25 is not None and total_debt and total_debt > 0) else np.nan
-            
-            metrics["r06_current_ratio"] = ca_25 / cl_25 if cl_25 else np.nan
-            metrics["r07_quick_ratio"] = (ca_25 - inv_25) / cl_25 if (ca_25 is not None and inv_25 is not None and cl_25) else np.nan
-            metrics["r08_interest_coverage"] = ebit_25 / int_exp_25 if int_exp_25 else np.nan
-            
-            metrics["r09_retained_earnings_deficit"] = re_25 / assets_25 if (re_25 is not None and assets_25) else np.nan
-            
-            extra_items = (abs(extra_cred_25 or 0) + abs(extra_chg_25 or 0))
-            metrics["r10_non_recurring_items"] = extra_items / abs(pretax_25) if (pretax_25 and abs(pretax_25) > 0) else np.nan
-            
-            metrics["r11_goodwill_intangibles"] = intangibles_25 / assets_25 if (intangibles_25 is not None and assets_25) else np.nan
-            metrics["r12_risk_provision_trend"] = risk_prov_25 / total_liab_25 if (risk_prov_25 is not None and total_liab_25) else np.nan
+            metrics = compute_risk_metrics(stm)
 
             for metric_id, value in metrics.items():
                 if pd.isna(value): continue
                 
-                grade = get_risk_grade(metric_id, value)
-                doc_id = f"{ticker}:{metric_id}"
-                
-                cur.execute("""
-                    INSERT INTO fundamental_metrics (id, ticker, metric_id, fundamental_value, fundamental_grade, calculated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (id) DO UPDATE 
-                    SET fundamental_value = EXCLUDED.fundamental_value,
-                        fundamental_grade = EXCLUDED.fundamental_grade;
-                """, (doc_id, ticker, metric_id, round(float(value), 4), grade, pd.Timestamp.now()))
+                upsert_metric(cur, ticker, metric_id, value, get_risk_grade(metric_id, value), stm)
                 inserted += 1
                 
         db.conn.commit()

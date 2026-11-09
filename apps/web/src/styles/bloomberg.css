@@ -1,0 +1,253 @@
+:root {
+  --bb-bg: #000000;
+  --bb-panel: #080a0e;
+  --bb-panel-alt: #0d1117;
+  --bb-header: #131922;
+  --bb-border: #263040;
+  --bb-amber: #ff9900;
+  --bb-amber-dim: #b36b00;
+  --bb-cyan: #00d4ff;
+  --bb-green: #00e676;
+  --bb-red: #ff3b30;
+  --bb-yellow: #ffcc00;
+  --bb-text: #e6edf3;
+  --bb-muted: #7d8590;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bb-bg);
+  color: var(--bb-text);
+  font-family: 'IBM Plex Mono', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-x: hidden;
+  user-select: text;
+}
+
+/* Top Bloomberg Command Bar */
+.bb-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #05070a;
+  border-bottom: 2px solid var(--bb-amber);
+  padding: 4px 10px;
+  height: 36px;
+  gap: 12px;
+}
+
+.bb-cmd-wrap {
+  display: flex;
+  align-items: center;
+  background: #000;
+  border: 1px solid var(--bb-amber);
+  padding: 2px 8px;
+  flex: 1;
+  max-width: 520px;
+}
+
+.bb-cmd-prompt {
+  color: var(--bb-amber);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.bb-cmd-input {
+  background: transparent;
+  border: none;
+  color: var(--bb-amber);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  width: 100%;
+  outline: none;
+  text-transform: uppercase;
+}
+
+/* Function Keys & Buttons */
+.bb-btn {
+  background: #161d27;
+  color: var(--bb-amber);
+  border: 1px solid var(--bb-border);
+  padding: 3px 9px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+}
+
+.bb-btn:hover {
+  background: var(--bb-amber);
+  color: #000;
+  border-color: var(--bb-amber);
+}
+
+.bb-btn-active {
+  background: var(--bb-amber);
+  color: #000;
+  border-color: var(--bb-amber);
+  font-weight: 700;
+}
+
+.bb-btn-go {
+  background: #006b2d;
+  color: #fff;
+  border: 1px solid var(--bb-green);
+  font-weight: 700;
+  padding: 4px 12px;
+}
+
+.bb-btn-go:hover:not(:disabled) {
+  background: var(--bb-green);
+  color: #000;
+}
+
+.bb-btn-go:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Panels & Grid */
+.bb-workspace {
+  display: grid;
+  grid-template-columns: 1.05fr 1.35fr;
+  gap: 4px;
+  padding: 4px;
+  min-height: calc(100vh - 96px);
+}
+
+@media (max-width: 1200px) {
+  .bb-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bb-panel {
+  background: var(--bb-panel);
+  border: 1px solid var(--bb-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.bb-panel-header {
+  background: var(--bb-header);
+  border-bottom: 1px solid var(--bb-border);
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--bb-amber);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.bb-panel-body {
+  padding: 8px;
+  overflow-y: auto;
+}
+
+/* High Density Tables */
+.bb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.bb-table th {
+  background: #0f141c;
+  color: var(--bb-cyan);
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--bb-border);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.bb-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #161b22;
+}
+
+.bb-table tr:hover td {
+  background: #131a24;
+}
+
+.bb-theme-row td {
+  background: #111823 !important;
+  color: var(--bb-amber);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  padding: 3px 6px;
+}
+
+/* Badges */
+.bb-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 1px;
+  text-transform: uppercase;
+}
+
+.bb-grade-Green, .bb-badge-green {
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--bb-green);
+  border: 1px solid var(--bb-green);
+}
+
+.bb-grade-Red, .bb-badge-red {
+  background: rgba(255, 59, 48, 0.18);
+  color: var(--bb-red);
+  border: 1px solid var(--bb-red);
+}
+
+.bb-grade-Yellow, .bb-badge-yellow {
+  background: rgba(255, 204, 0, 0.15);
+  color: var(--bb-yellow);
+  border: 1px solid var(--bb-yellow);
+}
+
+.bb-grade-Ungraded, .bb-grade-NA {
+  background: #161b22;
+  color: var(--bb-muted);
+  border: 1px solid #30363d;
+}
+
+/* Sentiment Bar */
+.bb-sent-bar-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 110px;
+}
+
+.bb-sent-track {
+  width: 54px;
+  height: 6px;
+  background: #1c2430;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Terminal Status Footer */
+.bb-statusbar {
+  background: #05070a;
+  border-top: 1px solid var(--bb-border);
+  padding: 3px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--bb-muted);
+}

@@ -1,12 +1,13 @@
 """
 CLI entry point.
 
-Usage:
-    python run_screening.py --ticker MELI
-    python run_screening.py --ticker GLBE --seed 7
+Usage (from the project root):
+    python scripts/run_screening.py --ticker MELI
+    python scripts/run_screening.py --ticker GLBE --seed 7
+    python scripts/run_screening.py --ticker MELI --save-run     # also store the run in the screening_runs table
 
 Requires the same environment/.env setup as the rest of equity_pipeline
-(Postgres reachable, MANAGED_LLM_API_KEY set) plus `pip install pydantic-ai`.
+(Postgres reachable, LLM_BASE_URL / LLM_MODEL / MANAGED_LLM_API_KEY set).
 """
 import argparse
 import json
@@ -14,8 +15,9 @@ import logging
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from equity_pipeline.agent import run_store  # noqa: E402
 from equity_pipeline.agent.data_access import get_db, load_fundamentals_bundle  # noqa: E402
 from equity_pipeline.agent.evaluation import evaluate_screening  # noqa: E402
 from equity_pipeline.agent.reproducibility import DEFAULT_SEED  # noqa: E402
@@ -30,18 +32,20 @@ def main():
     parser.add_argument("--ticker", required=True, help="Ticker as configured in config/companies.yaml, e.g. MELI")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--no-refresh", action="store_true",
-                         help="Skip the live pipeline (SEC EDGAR/Yahoo/Google News ingest + FinBERT + "
+                         help="Skip the live pipeline (SEC EDGAR/Yahoo/news ingest + FinBERT + "
                               "aggregation + fundamentals) and just read whatever is already in Postgres.")
-    parser.add_argument("--no-google-news", action="store_true",
-                         help="Run the live pipeline but skip the slow Google News per-metric step "
+    parser.add_argument("--no-news", "--no-google-news", dest="no_news", action="store_true",
+                         help="Run the live pipeline but skip the slow per-metric news search "
                               "(growth-metric sentiment will reflect the last time it was run, if ever).")
+    parser.add_argument("--save-run", action="store_true",
+                         help="Also store the finished run in the screening_runs table (what the web front end reads).")
     args = parser.parse_args()
 
     run = run_screening(
         args.ticker,
         seed=args.seed,
         refresh_data=not args.no_refresh,
-        include_google_news=not args.no_google_news,
+        include_news=not args.no_news,
     )
     summary = run["result"]
 
@@ -49,7 +53,10 @@ def main():
     # purely so the offline quality checks have the same data to check against.
     db = get_db()
     fundamentals = load_fundamentals_bundle(db, args.ticker.upper())
-    quality = evaluate_screening(summary, fundamentals)
+    quality = evaluate_screening(summary, fundamentals, news=run.get("news_payload"))
+
+    for notice in (run["pipeline_counts"] or {}).get("notices", []):
+        print(f"[live data] {notice['text']}")
 
     print("\n" + "=" * 70)
     print(f"SCREENING SUMMARY: {summary.ticker}")
@@ -74,7 +81,7 @@ def main():
 
     if run["pipeline_counts"] is not None:
         print("\n" + "-" * 70)
-        print("LIVE PIPELINE (SEC EDGAR / Yahoo / Google News / FinBERT / fundamentals)")
+        print("LIVE PIPELINE (SEC EDGAR / Yahoo / news search / FinBERT / fundamentals)")
         print("-" * 70)
         print(json.dumps(run["pipeline_counts"], indent=2, default=str))
 
@@ -87,6 +94,13 @@ def main():
         print(f"  [{flag}] {name}{detail}")
 
     print(f"\nRun manifest saved to: {run['manifest_path']}")
+
+    if args.save_run:
+        from equity_pipeline.config import app_mode
+        run_store.save_completed(
+            db, summary.ticker, run["manifest"]["run_id"], app_mode(), args.seed, summary.model_dump(),
+            run_store.quality_payload(quality), run["monitoring"], run["pipeline_counts"], run["manifest"])
+        print("Run stored in the screening_runs table.")
 
 
 if __name__ == "__main__":

@@ -1,17 +1,24 @@
+# Runtime packages of the ONLINE app (APP_MODE=demo): the dashboard / headless worker, live SEC EDGAR +
+# Yahoo Finance, the LLM brief, and reading everything else from the shared Postgres database.
+# This is the file Streamlit Community Cloud installs (it reads requirements.txt at the repository root).
+#
+# Deliberately NOT here (they stay on your PC, APP_MODE=full, see requirements-backend.txt):
+#   torch, transformers   FinBERT scoring        -> done by the local backend
+#   crawl4ai (+ Playwright browser)               -> the browser fallback of the text extractor, backend only
+#   openbb-sec            SEC statements         -> ratios are computed by the backend and stored in the database
+#
+# Article text in the demo is read with curl_cffi + trafilatura only.
+streamlit
+pydantic-ai
+psycopg2-binary
+pandas
+numpy
 requests
 feedparser
 beautifulsoup4
 yfinance
-googlenewsdecoder
-PyYAML
-python-dotenv
 curl_cffi
 trafilatura
-crawl4ai
-psycopg2-binary
-pandas
-numpy
-torch
-transformers
-openai
-instructor
+htmldate
+PyYAML
+python-dotenv

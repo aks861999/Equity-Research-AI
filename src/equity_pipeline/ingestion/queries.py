@@ -9,10 +9,14 @@ on a non-trivial dataset.
 
 
 def create_indexes(db):
+    """The `find` queries are served by the GIN index on the whole document (PostgresClient.ensure_db).
+    These two help the hand-written SQL that filters on type, ticker and the extraction status."""
+    # Earlier versions made three indexes that no query could use (wrong expressions, or a leftover
+    # of the Google News fetcher). Dropped here so existing databases are cleaned up on the next run.
+    for old in ("extraction_status_idx", "metric_match_idx", "google_link_idx"):
+        db.drop_index(old)
     db.create_index(["type", "ticker"], name="type_ticker_idx")
-    db.create_index(["type", "extraction", "status"], name="extraction_status_idx")
-    db.create_index(["type", "ticker", "matched_metrics"], name="metric_match_idx")
-    db.create_index(["type", "google_link"], name="google_link_idx")  # <-- ADD THIS LINE
+    db.create_index(["type", "extraction.status"], name="type_extraction_status_idx")
 
 
 def get_articles_for_ticker(db, ticker: str, limit: int = 200):

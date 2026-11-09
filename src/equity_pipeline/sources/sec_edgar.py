@@ -161,7 +161,8 @@ def _extract_ex99_text(document_url: str, index_url: str = None, filename: str =
 # Orchestration — returns structured dicts instead of writing to disk
 # --------------------------------------------------------------------------
 # Update the function signature to accept db
-def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: str, db=None) -> list:
+def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: str, db=None,
+                        stats: dict | None = None) -> list:
     index_url = entry.link
     filing_date_str = getattr(entry, "updated", "")
     filing_date = _parse_rss_date(filing_date_str)
@@ -170,6 +171,18 @@ def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: st
 
     accession = _extract_accession(index_url)
     date_display = filing_date_str[:10] if filing_date_str else None
+
+    # Filings never change once filed. If any section of this filing is already stored, skip it BEFORE
+    # downloading its index page (one request and one polite delay saved per stored filing). Trade-off:
+    # a section that failed to download earlier is not retried while another section of the same filing
+    # is stored.
+    count_stored = getattr(db, "count_filing_sections", None) if db else None
+    if count_stored:
+        stored = count_stored(ticker, accession)
+        if stored:
+            if stats is not None:
+                stats["sections_stored"] = stats.get("sections_stored", 0) + stored
+            return []
 
     time.sleep(REQUEST_DELAY)
     docs = parse_sec_index_page(index_url)
@@ -193,6 +206,8 @@ def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: st
             existing_doc = db.get(doc_id)
             if existing_doc and existing_doc.get("body_text"):
                 # Filing is already in the DB, skip downloading and parsing!
+                if stats is not None:
+                    stats["sections_stored"] = stats.get("sections_stored", 0) + 1
                 continue
                 
         time.sleep(REQUEST_DELAY)
@@ -208,10 +223,21 @@ def _process_one_filing(ticker: str, entry, cutoff_date: datetime, form_type: st
             "source_filename": doc_info.get("filename"),
             "body_text": text,
         })
+        if stats is not None:
+            stats["sections_new"] = stats.get("sections_new", 0) + 1
     return results
 # Update the function signature to accept db
-def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookback_days: int = 365, db=None):
-    """Returns a list of filing dicts..."""
+def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookback_days: int = 365, db=None,
+                      stats: dict | None = None):
+    """Returns a list of filing dicts. With `db`, sections already stored are skipped (not returned).
+
+    `stats`, if given, is filled so the caller can tell "nothing new" from "could not reach SEC":
+      feed_ok          False if the EDGAR feed did not answer with HTTP 200
+      filings_checked  recent filings looked at (inside the lookback window)
+      sections_new     sections downloaded now (the returned ones)
+      sections_stored  sections skipped because they were already in `db`"""
+    if stats is not None:
+        stats.update({"feed_ok": True, "filings_checked": 0, "sections_new": 0, "sections_stored": 0})
     if not HEADERS["User-Agent"]:
         logger.warning("SEC_USER_AGENT is not set in .env; sec.gov will likely reject these requests.")
     cutoff = datetime.now() - timedelta(days=lookback_days)
@@ -221,6 +247,8 @@ def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookb
     )
     resp = requests.get(rss_url, headers=HEADERS)
     if resp.status_code != 200:
+        if stats is not None:
+            stats["feed_ok"] = False
         return []
 
     feed = feedparser.parse(resp.content)
@@ -236,8 +264,10 @@ def fetch_sec_filings(ticker: str, form_type: str, max_results: int = 100, lookb
             continue
 
         # Pass db to the inner function
-        all_results.extend(_process_one_filing(ticker, entry, cutoff, form_type, db=db))
+        all_results.extend(_process_one_filing(ticker, entry, cutoff, form_type, db=db, stats=stats))
         processed += 1
+        if stats is not None:
+            stats["filings_checked"] = processed
 
     time.sleep(REQUEST_DELAY)
     return all_results

@@ -6,14 +6,14 @@ from .sentiment import FinBERTAnalyzer
 
 logger = logging.getLogger("run_sentiment")
 
-def run_pending_sentiments(db, batch_limit: int = 100000):
+def run_pending_sentiments(db, batch_limit: int = 100000, ticker: str | None = None):
     # Initialize the model ONCE before the loop
     analyzer = FinBERTAnalyzer()
     
     # Load companies to get primary_search_name for relevance checking
     companies = {c["ticker"]: c for c in load_companies()}
     
-    pending = get_unscored_articles(db, limit=batch_limit)
+    pending = get_unscored_articles(db, ticker=ticker, limit=batch_limit)
     logger.info("Found %d articles pending sentiment analysis.", len(pending))
     
     done = 0

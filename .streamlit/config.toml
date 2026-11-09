@@ -1,0 +1,9 @@
+# Streamlit settings for this project (read when you run `streamlit run apps/dashboard/streamlit_app.py` from the project root).
+
+[server]
+# Streamlit's file watcher inspects every loaded Python module. transformers (used by FinBERT) loads
+# hundreds of sub-modules lazily, and the watcher trips over image-model modules that need `torchvision`,
+# printing a long, harmless traceback. Turning the watcher off removes the noise.
+# Consequence: edits to the code are not picked up while the app runs. After changing a file under
+# src/, stop the app (Ctrl+C) and start it again.
+fileWatcherType = "none"

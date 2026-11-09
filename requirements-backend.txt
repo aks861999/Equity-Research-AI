@@ -1,0 +1,10 @@
+# Everything for the PC backend (APP_MODE=full): the online packages plus the heavy ones.
+#   pip install -r requirements-backend.txt
+-r requirements.txt
+
+crawl4ai          # browser fallback of the text extractor (then run: crawl4ai-setup / playwright install chromium)
+torch             # FinBERT
+transformers      # FinBERT
+openai            # standalone news summary (--run-summary)
+instructor        # standalone news summary (--run-summary)
+openbb-sec        # SEC statements for the 36 ratios
