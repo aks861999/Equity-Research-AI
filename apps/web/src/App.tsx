@@ -346,13 +346,24 @@ export default function App() {
               }}
             />
           </div>
-          <button
-            className="bb-btn bb-btn-go"
-            disabled={isPolling}
-            onClick={() => triggerLiveScreening(ticker)}
-          >
-            {isPolling ? '⟳ EXECUTING PIPELINE...' : 'RUN SCREENING <GO>'}
-          </button>
+          <div className="bb-run-box">
+            {summary && !isPolling && (
+              <div className="bb-run-hint">
+                ⚠ SAVED RESULT
+                {screeningRun?.completed_at
+                  ? ` FROM ${new Date(screeningRun.completed_at).toISOString().replace('T', ' ').slice(0, 16)} UTC`
+                  : ''}
+                {' '}— NOT LIVE. PRESS RUN SCREENING FOR A FRESH ONE ▶
+              </div>
+            )}
+            <button
+              className="bb-btn bb-btn-go"
+              disabled={isPolling}
+              onClick={() => triggerLiveScreening(ticker)}
+            >
+              {isPolling ? '⟳ EXECUTING PIPELINE...' : 'RUN SCREENING <GO>'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -443,27 +454,6 @@ export default function App() {
                   [LIVE FEED] {n.text}
                 </div>
               ))}
-
-              {summary && !isPolling && (
-                <div
-                  style={{
-                    background: '#0d1520',
-                    borderLeft: '3px solid var(--bb-muted)',
-                    padding: '6px 10px',
-                    fontSize: '11px',
-                    color: 'var(--bb-muted)',
-                    lineHeight: 1.6,
-                  }}
-                >
-                  SAVED RESULT of the last screening of {ticker}
-                  {screeningRun?.completed_at
-                    ? `, finished ${new Date(screeningRun.completed_at).toISOString().replace('T', ' ').slice(0, 16)} UTC`
-                    : ''}
-                  {screeningRun?.manifest?.model_name ? ` // ${screeningRun.manifest.model_name}` : ''}
-                  {screeningRun?.manifest?.prompt_version ? ` // ${screeningRun.manifest.prompt_version}` : ''}.
-                  It is read from the database, not produced now. Press RUN SCREENING for a fresh one.
-                </div>
-              )}
 
               {!summary ? (
                 <div style={{ padding: '20px', color: 'var(--bb-muted)', textAlign: 'center' }}>

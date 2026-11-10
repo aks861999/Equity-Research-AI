@@ -118,7 +118,7 @@ body {
 /* Panels & Grid */
 .bb-workspace {
   display: grid;
-  grid-template-columns: 1.05fr 1.35fr;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr);
   gap: 4px;
   padding: 4px;
   min-height: calc(100vh - 96px);
@@ -126,7 +126,7 @@ body {
 
 @media (max-width: 1200px) {
   .bb-workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -261,7 +261,7 @@ body {
    ------------------------------------------------------------------------------------------------ */
 .bb-two-col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -321,7 +321,7 @@ body {
 
   .bb-two-col,
   .bb-two-col-tight {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .bb-bottom-panel {
@@ -365,4 +365,75 @@ body {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
+}
+
+/* Nothing may make the page itself wider than the screen: the panels shrink, long words break, and only
+   the tables scroll sideways inside their panel. */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+.bb-workspace > * {
+  min-width: 0;
+}
+
+.bb-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.bb-panel-body {
+  min-width: 0;
+}
+
+.bb-topbar > div {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.bb-statusbar > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The run button and the bold "saved result" hint above it */
+.bb-run-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.bb-run-hint {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--bb-amber);
+  background: #141100;
+  border: 1px solid var(--bb-amber);
+  padding: 4px 9px;
+  text-align: right;
+  animation: bb-hint-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes bb-hint-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 153, 0, 0); }
+  50% { box-shadow: 0 0 8px 1px rgba(255, 153, 0, 0.55); }
+}
+
+@media (max-width: 900px) {
+  .bb-run-box {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .bb-run-hint {
+    text-align: left;
+    font-size: 12px;
+  }
 }
