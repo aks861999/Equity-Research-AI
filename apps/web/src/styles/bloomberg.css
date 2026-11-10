@@ -359,3 +359,10 @@ body {
     align-items: stretch !important;
   }
 }
+
+/* A link that looks like a button (the GitHub button in the top bar) */
+.bb-link-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
