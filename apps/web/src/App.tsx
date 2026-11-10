@@ -99,7 +99,6 @@ const WORKER_TIMEOUT_MS = 4 * 60 * 1000;
 
 export default function App() {
   const [ticker, setTicker] = useState<string>('MELI');
-  const [cmdInput, setCmdInput] = useState<string>('MELI EQUITY <GO>');
   const [seed, setSeed] = useState<number>(42);
   const [refreshLive, setRefreshLive] = useState<boolean>(true);
   const [activeBottomTab, setActiveBottomTab] = useState<'SOURCES' | 'RISK' | 'AUDIT'>('SOURCES');
@@ -132,6 +131,12 @@ export default function App() {
   // Fetch all prepared & latest screening data from Supabase
   const fetchTickerData = useCallback(async (targetTicker: string) => {
     setLoadingDb(true);
+    // Never leave the previous company's numbers on screen while the new ones load (or if they fail to load).
+    setFundamentals({});
+    setScores({});
+    setSources([]);
+    setFreshness(null);
+    setScreeningRun(null);
     try {
       const [fundRes, scoreRes, srcRes, freshRes, runRes] = await Promise.all([
         supabase.from('fundamental_metrics').select('*').eq('ticker', targetTicker),
@@ -178,21 +183,6 @@ export default function App() {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
   }, [ticker, fetchTickerData]);
-
-  // Command Line Parser (e.g., "NVDA", "AAPL RISK", "GLBE RUN")
-  const handleCommandSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const parts = cmdInput.trim().toUpperCase().replace('<GO>', '').trim().split(/\s+/);
-    const maybeTicker = parts[0];
-    const found = CONFIGURED_COMPANIES.find((c) => c.ticker === maybeTicker);
-    if (found) {
-      setTicker(found.ticker);
-    }
-    if (parts.includes('RISK') || parts.includes('RSK')) setActiveBottomTab('RISK');
-    if (parts.includes('NEWS') || parts.includes('SRC')) setActiveBottomTab('SOURCES');
-    if (parts.includes('AUDIT') || parts.includes('QLT')) setActiveBottomTab('AUDIT');
-    if (parts.includes('RUN')) triggerLiveScreening(found ? found.ticker : ticker);
-  };
 
   // Asynchronous Trigger + Supabase Polling Loop
   const triggerLiveScreening = (targetTicker = ticker) => {
@@ -279,23 +269,10 @@ export default function App() {
       <header className="bb-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ background: 'var(--bb-amber)', color: '#000', fontWeight: 700, padding: '2px 6px' }}>
-            ALLIANZ GI
+            EQUITY RESEARCH AI
           </span>
           <span style={{ color: 'var(--bb-cyan)', fontWeight: 700 }}>EQUITY SCREENING TERMINAL</span>
         </div>
-
-        <form className="bb-cmd-wrap" onSubmit={handleCommandSubmit}>
-          <span className="bb-cmd-prompt">&gt;</span>
-          <input
-            className="bb-cmd-input"
-            value={cmdInput}
-            onChange={(e) => setCmdInput(e.target.value)}
-            placeholder="TYPE TICKER (E.G. MELI, NVDA, AAPL) + ENTER..."
-          />
-          <button type="submit" className="bb-btn" style={{ border: 'none', background: 'var(--bb-amber)', color: '#000' }}>
-            &lt;GO&gt;
-          </button>
-        </form>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px' }}>
           <span style={{ color: 'var(--bb-green)' }}>● DEMO MODE (ONLINE)</span>
@@ -305,6 +282,7 @@ export default function App() {
 
       {/* 2. TICKER SELECTOR & ACTION RIBBON */}
       <div
+        className="bb-ribbon"
         style={{
           background: '#0b0f16',
           borderBottom: '1px solid var(--bb-border)',
@@ -322,17 +300,14 @@ export default function App() {
             <button
               key={c.ticker}
               className={`bb-btn ${ticker === c.ticker ? 'bb-btn-active' : ''}`}
-              onClick={() => {
-                setTicker(c.ticker);
-                setCmdInput(`${c.ticker} EQUITY <GO>`);
-              }}
+              onClick={() => setTicker(c.ticker)}
             >
               {c.ticker}
             </button>
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="bb-ribbon-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--bb-muted)', cursor: 'pointer' }}>
             <input
               type="checkbox"
@@ -388,7 +363,7 @@ export default function App() {
           <span style={{ color: 'var(--bb-cyan)' }}>[{company.sector}]</span>{' '}
           <span style={{ color: 'var(--bb-muted)' }}>// SEC FORM: {company.secForm}</span>
         </div>
-        <div style={{ display: 'flex', gap: '14px', color: 'var(--bb-muted)' }}>
+        <div style={{ display: 'flex', gap: '4px 14px', flexWrap: 'wrap', color: 'var(--bb-muted)' }}>
           <span>
             ANNUAL FY END: <strong style={{ color: 'var(--bb-text)' }}>{fyEnd} ({currency})</strong>
           </span>
@@ -426,7 +401,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="bb-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="bb-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '26px', padding: '14px' }}>
               {isPolling && (
                 <div
                   style={{
@@ -476,29 +451,29 @@ export default function App() {
                     <div style={{ color: 'var(--bb-amber)', fontWeight: 700, marginBottom: '4px' }}>
                       Q2 // KEY DRIVERS FROM RECENT NEWS &amp; SEC FILINGS
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <div style={{ background: '#07130d', border: '1px solid #133926', padding: '6px' }}>
-                        <div style={{ color: 'var(--bb-green)', fontWeight: 700, marginBottom: '4px' }}>
+                    <div className="bb-two-col">
+                      <div style={{ background: '#07130d', border: '1px solid #133926', padding: '12px' }}>
+                        <div style={{ color: 'var(--bb-green)', fontWeight: 700, marginBottom: '10px' }}>
                           [+] KEY POSITIVES
                         </div>
                         {summary.key_positives.map((p, i) => (
-                          <div key={i} style={{ marginBottom: '4px', fontSize: '11px' }}>
+                          <div key={i} style={{ marginBottom: '10px', fontSize: '11px', lineHeight: 1.6 }}>
                             <span style={{ color: 'var(--bb-green)' }}>+</span> {p}
                           </div>
                         ))}
                       </div>
-                      <div style={{ background: '#180909', border: '1px solid #3d1717', padding: '6px' }}>
-                        <div style={{ color: 'var(--bb-red)', fontWeight: 700, marginBottom: '4px' }}>
+                      <div style={{ background: '#180909', border: '1px solid #3d1717', padding: '12px' }}>
+                        <div style={{ color: 'var(--bb-red)', fontWeight: 700, marginBottom: '10px' }}>
                           [-] KEY NEGATIVES / RISKS
                         </div>
                         {summary.key_negatives.map((n, i) => (
-                          <div key={i} style={{ marginBottom: '4px', fontSize: '11px' }}>
+                          <div key={i} style={{ marginBottom: '10px', fontSize: '11px', lineHeight: 1.6 }}>
                             <span style={{ color: 'var(--bb-red)' }}>-</span> {n}
                           </div>
                         ))}
                       </div>
                     </div>
-                    <div style={{ color: 'var(--bb-muted)', fontSize: '11px', marginTop: '5px' }}>
+                    <div style={{ color: 'var(--bb-muted)', fontSize: '11px', marginTop: '14px', lineHeight: 1.6 }}>
                       <strong>NARRATIVE:</strong> {summary.news_narrative_summary}
                     </div>
                   </div>
@@ -547,9 +522,9 @@ export default function App() {
           </section>
 
           {/* BOTTOM LEFT PANEL: TABBED RISK / SOURCES / AUDIT */}
-          <section className="bb-panel" style={{ height: '320px' }}>
+          <section className="bb-panel bb-bottom-panel">
             <div className="bb-panel-header">
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 <button
                   className={`bb-btn ${activeBottomTab === 'SOURCES' ? 'bb-btn-active' : ''}`}
                   onClick={() => setActiveBottomTab('SOURCES')}
@@ -582,7 +557,7 @@ export default function App() {
             <div className="bb-panel-body" style={{ flex: 1 }}>
               {activeBottomTab === 'SOURCES' && (
                 <>
-                  <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px 12px' }}>
                     <label style={{ color: 'var(--bb-muted)', cursor: 'pointer', fontSize: '11px' }}>
                       <input
                         type="checkbox"
@@ -693,7 +668,7 @@ export default function App() {
               )}
 
               {activeBottomTab === 'AUDIT' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="bb-two-col bb-two-col-tight">
                   <div>
                     <div style={{ color: 'var(--bb-amber)', fontWeight: 700, marginBottom: '4px' }}>
                       QUALITY EVALUATION ({screeningRun?.quality ? `${Math.round(screeningRun.quality.score * 100)}%` : 'N/A'})
@@ -759,6 +734,13 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
+                {!loadingDb && Object.keys(fundamentals).length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '16px', color: 'var(--bb-yellow)' }}>
+                      NO PREPARED DATA PUBLISHED FOR {ticker}. Run the backend, then publish_to_supabase.py.
+                    </td>
+                  </tr>
+                )}
                 {(['GROWTH', 'PROFITABILITY', 'CAPITAL EFFICIENCY', 'REINVESTMENT', 'LEVERAGE & LIQUIDITY'] as const).map(
                   (theme) => {
                     const themeIds = growthMetricIds.filter((id) => METRIC_CATALOG[id].theme === theme);
@@ -783,7 +765,16 @@ export default function App() {
                                 {formatMetricValue(id, fRow?.fundamental_value, currency)}
                               </td>
                               <td>
-                                <span className={`bb-badge bb-grade-${grade.replace('/', '')}`}>{grade}</span>
+                                <span
+                                  className={`bb-badge bb-grade-${grade.replace('/', '')}`}
+                                  title={
+                                    grade === 'Ungraded'
+                                      ? 'Not graded: an input the grading rule needs is missing for this company.'
+                                      : undefined
+                                  }
+                                >
+                                  {grade === 'Ungraded' ? 'NO RULE' : grade}
+                                </span>
                               </td>
                               <td>
                                 {ws !== null && ws !== undefined ? (
@@ -838,6 +829,17 @@ export default function App() {
                 )}
               </tbody>
             </table>
+            <div style={{ padding: '10px 12px', fontSize: '10px', color: 'var(--bb-muted)', lineHeight: 1.6 }}>
+              <div>
+                PREPARED DATA: the annual ratios and the FinBERT sentiment are computed on the backend and change only when
+                it publishes (ratios {freshness?.ratios_last_updated || 'N/A'}, scores {freshness?.scores_last_updated || 'N/A'}).
+                RUN SCREENING refreshes SEC filings and Yahoo headlines and rewrites the brief, not this table.
+              </div>
+              <div style={{ marginTop: '6px' }}>
+                GRADES follow the design document: level bands, plus trend and relative rules (for example profit growth
+                against revenue growth). NO RULE = an input the rule needs is missing for this company.
+              </div>
+            </div>
           </div>
         </section>
       </main>

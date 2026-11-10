@@ -127,7 +127,7 @@ GROWTH_METRIC_DEFINITIONS: dict[str, dict[str, str]] = {
     "m22_current_ratio": {
         "name": "Current Ratio",
         "description": "Current assets relative to current liabilities. Basic short-term liquidity / ability to cover near-term obligations.",
-        "good_direction": "roughly 1.0-2.5 is typically considered healthy; too high can indicate idle capital",
+        "good_direction": "roughly 1.5-2.0 is typically considered healthy; below 1.0 is a liquidity shortage; above 2.5 can indicate idle capital",
     },
     "m23_quick_ratio": {
         "name": "Quick Ratio",

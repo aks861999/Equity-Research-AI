@@ -22,7 +22,10 @@ class GrowthMetric(BaseModel):
         None, description="The computed financial ratio/figure from the company's SEC income statement and balance sheet."
     )
     fundamental_grade: str = Field(
-        "N/A", description="Red/Yellow/Green/Ungraded/N/A threshold grade, see run_growth_fundamentals.get_grade()."
+        "N/A", description="Red/Yellow/Green threshold grade (extraction/grading.py, from the design document); 'Ungraded' if an input of the rule is missing, 'N/A' without a value."
+    )
+    grade_rule: str = Field(
+        "", description="The rule behind fundamental_grade in one line (a level band, or a comparison with revenue growth or last year). For some metrics the grade judges the change, not the level."
     )
     weighted_sentiment: float | None = Field(
         None, description="Time-decayed, relevance-weighted FinBERT sentiment score for news matched to this "
@@ -47,6 +50,7 @@ class RiskMetric(BaseModel):
     good_direction: str
     fundamental_value: float | None = None
     fundamental_grade: str = "N/A"
+    grade_rule: str = ""   # the rule behind the grade, in one line
     # Deliberately NO per-metric sentiment fields: risk-theme metrics were
     # never run through the Google News per-metric pipeline, so there is no
     # weighted_sentiment/dispersion/volume for these. Do not backfill with

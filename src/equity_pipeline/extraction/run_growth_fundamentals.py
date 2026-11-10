@@ -6,49 +6,9 @@ from pathlib import Path
 
 from ..sources.sec_fundamentals import configured_tickers, load_company_statements
 from .fundamentals_store import ensure_table, upsert_metric
+from .grading import get_grade, grade_growth_metrics, growth_context  # noqa: F401  (get_grade is re-exported)
 
 logger = logging.getLogger("run_fundamentals")
-
-def get_grade(metric_id, value):
-    """Applies Part 10 Decision-Boundary Thresholds."""
-    if value is None or pd.isna(value):
-        return "N/A"
-    
-    val = float(value)
-    if metric_id == "m01_revenue_growth":
-        if val < 0.10: return "Red"
-        elif val < 0.15: return "Yellow"
-        else: return "Green"
-    elif metric_id == "m05_gross_margin":
-        if val < 0.20: return "Red"
-        elif val < 0.40: return "Yellow"
-        else: return "Green"
-    elif metric_id in ["m06_operating_margin", "m07_ebit_margin"]:
-        if val < 0.10: return "Red"
-        elif val < 0.20: return "Yellow"
-        else: return "Green"
-    elif metric_id == "m11_roe":
-        if val < 0.10: return "Red"
-        elif val < 0.15: return "Yellow"
-        else: return "Green"
-    elif metric_id == "m13_roic":
-        if val < 0.08: return "Red"
-        elif val < 0.15: return "Yellow"
-        else: return "Green"
-    elif metric_id == "m19_debt_to_equity":
-        if val > 2.0: return "Red"
-        elif val > 1.0: return "Yellow"
-        else: return "Green"
-    elif metric_id == "m21_net_debt_to_ebitda":
-        if val > 4.0: return "Red"
-        elif val > 2.0: return "Yellow"
-        else: return "Green"
-    elif metric_id == "m22_current_ratio":
-        if val < 1.0 or val > 2.5: return "Red"
-        elif (val >= 1.0 and val < 1.5) or val > 2.0: return "Yellow"
-        else: return "Green"
-    else:
-        return "Ungraded" # For metrics that require trend/peer comparison
 
 def compute_growth_metrics(stm) -> dict[str, float]:
     """The 25 growth-screening ratios for one company (NaN where an input is missing).
@@ -153,12 +113,16 @@ def run_fundamental_extraction(db, tickers: list[str] | None = None):
                 logger.warning("%s: fewer than 2 fiscal years available, skipped", ticker)
                 continue
             metrics = compute_growth_metrics(stm)
+            # The grades follow the design document (extraction/grading.py): level bands, and trend / relative
+            # rules that compare a ratio with last year's or with revenue growth, which is why the grading
+            # also gets the extra figures of growth_context().
+            grades = grade_growth_metrics(metrics, growth_context(stm))
 
             # 3. Insert into DB
             for metric_id, value in metrics.items():
                 if pd.isna(value): continue
-                
-                upsert_metric(cur, ticker, metric_id, value, get_grade(metric_id, value), stm)
+
+                upsert_metric(cur, ticker, metric_id, value, grades[metric_id], stm)
                 inserted += 1
                 
         db.conn.commit()

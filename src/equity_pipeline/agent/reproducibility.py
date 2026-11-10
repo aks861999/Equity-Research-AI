@@ -37,7 +37,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-PROMPT_VERSION = "screening-agent-v9"
+PROMPT_VERSION = "screening-agent-v10"
 DEFAULT_SEED = 42
 # Layout of the manifest file. 1: the first layout. 2: adds manifest_version and
 # risk_flag_count_corrected. A reader should use load_run_manifest(), which fills in what an older

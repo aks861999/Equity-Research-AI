@@ -134,7 +134,7 @@ def test_a_metric_without_a_value_must_not_get_a_number():
 
 def test_grade_wording_must_not_contradict_the_grade():
     assert not _bound(risk_concerns="Debt ratio of 0.72 is strong and healthy.").checks["grade_wording_matches_grade"]
-    assert not _bound(financial_highlights="Gross margin 48.8% is weak.").checks["grade_wording_matches_grade"]
+    assert not _bound(financial_highlights="Operating margin 33.0% is weak.").checks["grade_wording_matches_grade"]
     fine = _bound(risk_concerns="Debt ratio of 0.72 is Red despite strong cash generation.",
                   financial_highlights="Gross margin 48.8% is strong, ROIC 104% is excellent.")
     assert fine.checks["grade_wording_matches_grade"], fine.details
@@ -195,6 +195,28 @@ def test_manifests_of_every_version_load_with_the_same_keys():
     assert loaded["pipeline_counts"] is None and loaded["prompt_version"] == "screening-agent-v8"
 
 
+def test_a_trend_graded_metric_may_be_a_strong_level_with_a_red_grade():
+    # gross margin is graded on its TREND: a 48% margin that fell is Red, and "strong margin" is still true
+    fundamentals = _bound_fundamentals()
+    for metric in fundamentals.growth_metrics:
+        if metric.metric_id == "m05_gross_margin":
+            metric.fundamental_grade = "Red"
+    report = QualityReport()
+    _metric_bound_checks(_summary(financial_highlights="Gross margin is a strong 48.8% but fell on last year."),
+                         fundamentals, report)
+    assert report.checks["grade_wording_matches_grade"], report.details
+    # a LEVEL-graded metric keeps the check: a Red debt ratio called strong is still flagged
+    clash = QualityReport()
+    _metric_bound_checks(_summary(risk_concerns="Debt ratio of 0.72 is strong."), fundamentals, clash)
+    assert not clash.checks["grade_wording_matches_grade"]
+
+
+def test_the_model_gets_the_rule_behind_every_grade():
+    from equity_pipeline.agent.schemas import GrowthMetric as GM, RiskMetric as RM
+    assert GM.model_fields["grade_rule"].default == "" and RM.model_fields["grade_rule"].default == ""
+    assert "grade_rule" in SYSTEM_PROMPT and "compares with revenue growth or with last year" in SYSTEM_PROMPT
+
+
 def test_period_note_and_defaults():
     p = FundamentalsPeriod(fiscal_year_end="2025-12-31", currency="USD")
     assert p.period_type == "annual" and "ANNUAL" in p.note and "different period" in p.note
@@ -206,7 +228,7 @@ def test_the_prompt_tells_the_agent_not_to_guess_about_periods_and_limits_length
     for needle in ("period_type", "fiscal_year_end", "do NOT explain the difference with guesses",
                    "at most 120 words", "period is missing"):
         assert needle in SYSTEM_PROMPT, needle
-    assert PROMPT_VERSION == "screening-agent-v9" and "about_company" in SYSTEM_PROMPT
+    assert PROMPT_VERSION == "screening-agent-v10" and "about_company" in SYSTEM_PROMPT
     # the model may say what a ratio measures, but not why a figure is what it is, nor a trend
     assert "commonly known facts" not in SYSTEM_PROMPT
     assert "Do NOT explain WHY" in SYSTEM_PROMPT and "do NOT describe a trend" in SYSTEM_PROMPT

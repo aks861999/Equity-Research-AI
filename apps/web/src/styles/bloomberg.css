@@ -251,3 +251,111 @@ body {
   font-size: 11px;
   color: var(--bb-muted);
 }
+
+
+/* ------------------------------------------------------------------------------------------------
+   Responsive layout
+   Desktop: two columns. Tablet and phone (up to 1200 px the workspace is already one column, see
+   .bb-workspace above): the bars wrap, the buttons grow to a touch size, two-column blocks stack,
+   and the wide tables scroll sideways inside their panel instead of pushing the whole page.
+   ------------------------------------------------------------------------------------------------ */
+.bb-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.bb-two-col-tight {
+  gap: 10px;
+}
+
+.bb-bottom-panel {
+  height: 320px;
+}
+
+.bb-panel-header {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.bb-panel-body {
+  overflow-x: auto;
+}
+
+.bb-table td,
+.bb-table th {
+  vertical-align: top;
+}
+
+@media (max-width: 900px) {
+  body {
+    font-size: 13px;
+  }
+
+  .bb-topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 6px 12px;
+  }
+
+  .bb-ribbon {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .bb-ribbon-actions {
+    justify-content: space-between;
+  }
+
+  .bb-ribbon-actions .bb-btn-go {
+    width: 100%;
+    padding: 11px 12px;
+    font-size: 13px;
+  }
+
+  .bb-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .bb-two-col,
+  .bb-two-col-tight {
+    grid-template-columns: 1fr;
+  }
+
+  .bb-bottom-panel {
+    height: auto;
+    max-height: 80vh;
+  }
+
+  .bb-workspace {
+    min-height: 0;
+  }
+
+  /* wide tables keep their width and scroll sideways inside the panel */
+  .bb-table {
+    min-width: 560px;
+  }
+
+  .bb-statusbar {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bb-workspace {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .bb-panel-header {
+    font-size: 10px;
+  }
+
+  .bb-ribbon-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+}

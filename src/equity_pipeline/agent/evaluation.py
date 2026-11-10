@@ -20,6 +20,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from ..extraction.grading import RELATIVE_GRADED
 from .schemas import FundamentalsToolOutput, ScreeningSummary
 
 # Whole words only, and not inside a hyphenated word ("sell-side", "buy-side" are fine).
@@ -266,6 +267,7 @@ def _metric_values(fundamentals: FundamentalsToolOutput) -> dict[str, dict]:
             "values": [float(v) for v in values if v is not None],
             "has_value": m.fundamental_value is not None,
             "grade": (m.fundamental_grade or "").lower(),
+            "relative": m.metric_id in RELATIVE_GRADED,
         }
     return out
 
@@ -365,6 +367,8 @@ def _metric_bound_checks(summary: ScreeningSummary, fundamentals: FundamentalsTo
             clause = text[h[0]:end]
             if _CLAUSE_SKIP.search(clause) or any(o[0] < end for o in hits[k + 1:]):
                 continue
+            if any(known[i]["relative"] for i in h[3]):
+                continue   # a trend or relative grade says nothing about whether the LEVEL is strong or weak
             grades = {known[i]["grade"] for i in h[3]}
             if len(grades) != 1:
                 continue

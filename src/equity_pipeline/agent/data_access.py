@@ -28,6 +28,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from ..config import db_settings, get_company
+from ..extraction.grading import GRADE_RULES
 from ..extraction.quality_gate import is_about_company
 from ..db.postgres_client import PostgresClient
 from .metric_definitions import GROWTH_METRIC_DEFINITIONS, RISK_METRIC_DEFINITIONS
@@ -340,6 +341,7 @@ def load_fundamentals_bundle(db, ticker: str) -> FundamentalsToolOutput:
                 good_direction=defn["good_direction"],
                 fundamental_value=val,
                 fundamental_grade=grade,
+                grade_rule=GRADE_RULES.get(metric_id, ""),
                 weighted_sentiment=ws,
                 sentiment_dispersion=disp,
                 sentiment_volume=vol,
@@ -357,6 +359,7 @@ def load_fundamentals_bundle(db, ticker: str) -> FundamentalsToolOutput:
                 good_direction=defn["good_direction"],
                 fundamental_value=val,
                 fundamental_grade=grade,
+                grade_rule=GRADE_RULES.get(metric_id, ""),
             )
         )
 

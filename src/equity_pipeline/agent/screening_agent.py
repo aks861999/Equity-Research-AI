@@ -113,6 +113,12 @@ about_company false is a market-wide or unrelated piece that at most mentions th
 in passing: do not use it as evidence about the company (the scored Yahoo evidence \
 already leaves such items out).
 
+Grades. Every metric has fundamental_grade (Red, Yellow, Green; Ungraded when an input of its rule is missing; \
+N/A without a value) and grade_rule, the rule behind it. For most ratios the grade judges the LEVEL. For some \
+(profit, net income and asset growth, gross margin, SG&A, sustainable growth, reinvestment, free cash flow, \
+capex-to-sales) the rule compares with revenue growth or with last year, so a high level can carry a Red grade: \
+read the grade_rule, say what the rule says, and do not call a level strong or weak just because of its colour.
+
 Time periods - read this before writing Q1 and Q3. The fundamental ratios come from the \
 company's latest ANNUAL statements; fundamentals_tool.period gives the fiscal_year_end, the \
 period_type and the currency. Filings and news often quote other periods (a quarter, a later \
